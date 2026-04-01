@@ -1,0 +1,30 @@
+{
+  "name": "react_tetris",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JYPark-Code/jungle_w5_react_tetris.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JYPark-Code/jungle_w5_react_tetris/issues"
+  },
+  "homepage": "https://github.com/JYPark-Code/jungle_w5_react_tetris#readme",
+  "devDependencies": {
+    "jsdom": "^29.0.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
