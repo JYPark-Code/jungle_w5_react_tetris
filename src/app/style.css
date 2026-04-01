@@ -399,3 +399,258 @@ body {
   max-width: 900px;
   margin: 0 auto;
 }
+
+/* ============================================================
+   Tab 2 — Why 패널 (Apple Watch 스타일 스크롤)
+   ============================================================ */
+
+/* Why 탭이 활성화될 때 scroll-snap 적용 */
+#tab-why.active {
+  scroll-snap-type: y mandatory;
+  padding: 0;
+}
+
+.why-container {
+  width: 100%;
+}
+
+/* 각 섹션: 뷰포트 높이, snap 정렬 */
+.why-section {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  padding: 48px 64px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+/* 인트로 — 세로 중앙 */
+.why-intro {
+  flex-direction: column;
+  gap: 32px;
+  text-align: center;
+}
+
+.why-intro-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.why-title {
+  font-size: 36px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.why-subtitle {
+  font-size: 18px;
+  color: #ccc;
+  line-height: 1.8;
+}
+
+.why-scroll-hint {
+  font-size: 14px;
+  color: #555;
+  margin-top: 24px;
+  animation: whyBounce 2s ease infinite;
+}
+
+@keyframes whyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* 2컬럼 레이아웃 */
+.why-two-col {
+  gap: 64px;
+}
+
+.why-two-col-reverse {
+  flex-direction: row-reverse;
+}
+
+.why-col-visual {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.why-col-text {
+  max-width: 440px;
+}
+
+/* 캔버스 공통 */
+.why-canvas {
+  background: #0d0d1a;
+  border: 1px solid #222;
+  border-radius: 8px;
+  display: block;
+}
+
+/* Hook 이름 */
+.why-hook-name {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+/* Hook 설명 */
+.why-hook-desc {
+  font-size: 18px;
+  color: #fff;
+  line-height: 1.8;
+}
+
+.why-hook-detail {
+  font-size: 16px;
+  color: #ccc;
+  line-height: 1.8;
+}
+
+.why-hook-detail em {
+  color: #fff;
+  font-style: normal;
+}
+
+/* 구분선 */
+.why-divider {
+  height: 1px;
+  background: #333;
+  margin: 20px 0;
+}
+
+/* 비교 블록 (useState) */
+.why-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.why-compare-bad,
+.why-compare-good {
+  background: #0d0d0d;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #aaa;
+}
+
+.why-compare-bad {
+  border-left: 3px solid #f44;
+}
+
+.why-compare-good {
+  border-left: 3px solid #00ff88;
+}
+
+.why-compare-bad code,
+.why-compare-good code {
+  color: #ffe66d;
+  font-family: inherit;
+}
+
+/* 버튼 그룹 */
+.why-btn-group {
+  display: flex;
+  gap: 12px;
+}
+
+.why-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.why-btn:hover {
+  background: #222;
+}
+
+.why-btn-start {
+  border-color: #00ff88;
+  color: #00ff88;
+}
+
+.why-btn-start:hover {
+  background: #00ff88;
+  color: #0d0d0d;
+}
+
+.why-btn-stop {
+  border-color: #f44;
+  color: #f44;
+}
+
+.why-btn-stop:hover {
+  background: #f44;
+  color: #fff;
+}
+
+/* 섹션 4: Component 분리 */
+.why-component {
+  flex-direction: column;
+  gap: 32px;
+}
+
+.why-component-header {
+  text-align: center;
+}
+
+.why-component-body {
+  display: flex;
+  gap: 64px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 컴포넌트 트리 */
+.why-tree {
+  font-size: 16px;
+  line-height: 2.2;
+}
+
+.why-tree-node {
+  color: #fff;
+  font-family: 'Consolas', 'Monaco', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, text-shadow 0.15s;
+}
+
+.why-tree-root {
+  color: #4ecdc4;
+  font-weight: bold;
+}
+
+.why-tree-badge {
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.why-badge-red {
+  color: #f44;
+}
+
+.why-badge-gray {
+  color: #666;
+}
+
+.why-tree-note {
+  margin-top: 16px;
+  font-size: 15px;
+  color: #888;
+  line-height: 1.8;
+  font-family: inherit;
+}

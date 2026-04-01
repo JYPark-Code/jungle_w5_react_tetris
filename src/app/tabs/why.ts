@@ -1,59 +1,667 @@
 // ============================================================
-// Tab 2 — 🧩 Why Tetris (주제 선정 이유)
+// Tab 2 — 🧩 Why React (Apple Watch 스타일 스크롤 섹션)
+// 블록 애니메이션 + Hook 설명을 섹션별로 보여주는 스크롤 페이지
+// ============================================================
+
+/** 셀 크기 (블록 렌더링용) */
+const CELL = 28;
+
+/** 블록 색상 */
+const COLORS = {
+  T: '#a000f0',
+  L: '#f0a000',
+  I: '#00f0f0',
+  S: '#00f000',
+  Z: '#f00000',
+  O: '#f0f000',
+  J: '#0000f0',
+};
+
+// T 블록 셀 오프셋 (4칸)
+const T_CELLS = [
+  { x: -1, y: 0 },
+  { x: 0, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: -1 },
+];
+
+// L 블록 셀 오프셋
+const L_CELLS = [
+  { x: -1, y: 0 },
+  { x: 0, y: 0 },
+  { x: 1, y: 0 },
+  { x: 1, y: -1 },
+];
+
+// I 블록 셀 오프셋
+const I_CELLS = [
+  { x: -1.5, y: 0 },
+  { x: -0.5, y: 0 },
+  { x: 0.5, y: 0 },
+  { x: 1.5, y: 0 },
+];
+
+/** 캔버스에 테트리스 블록을 그린다 (회전 지원) */
+function drawBlock(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  angle: number,
+  cells: { x: number; y: number }[],
+  color: string,
+  size: number = CELL,
+): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  for (const cell of cells) {
+    const x = cell.x * size;
+    const y = cell.y * size;
+    ctx.fillStyle = color;
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+  }
+  ctx.restore();
+}
+
+/** IntersectionObserver로 뷰포트 진입 시 애니메이션 시작/정지 */
+function observeCanvas(
+  section: HTMLElement,
+  startFn: () => void,
+  stopFn: () => void,
+): void {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          startFn();
+        } else {
+          stopFn();
+        }
+      }
+    },
+    { threshold: 0.3 },
+  );
+  observer.observe(section);
+}
+
+// ============================================================
+// 섹션 0: 인트로 — 회전하는 T 블록
+// ============================================================
+
+function createIntroSection(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'why-section why-intro';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 200;
+  canvas.height = 200;
+  canvas.className = 'why-canvas';
+
+  const textDiv = document.createElement('div');
+  textDiv.className = 'why-intro-text';
+  textDiv.innerHTML = `
+    <h1 class="why-title">왜 React가 필요한가?</h1>
+    <p class="why-subtitle">이 블록 하나를 움직이려면<br>세 가지 기능이 반드시 필요합니다</p>
+    <div class="why-scroll-hint">아래로 스크롤 ↓</div>
+  `;
+
+  section.appendChild(canvas);
+  section.appendChild(textDiv);
+
+  // 애니메이션
+  let angle = 0;
+  let rafId: number | null = null;
+
+  function animate(): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 200, 200);
+    angle += 0.01;
+    drawBlock(ctx, 100, 100, angle, T_CELLS, COLORS.T, 30);
+    rafId = requestAnimationFrame(animate);
+  }
+
+  observeCanvas(
+    section,
+    () => {
+      if (!rafId) rafId = requestAnimationFrame(animate);
+    },
+    () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    },
+  );
+
+  return section;
+}
+
+// ============================================================
+// 섹션 1: useState — 블록 이동 + 좌표 표시
+// ============================================================
+
+function createUseStateSection(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'why-section why-two-col';
+
+  // 왼쪽: 캔버스
+  const left = document.createElement('div');
+  left.className = 'why-col-visual';
+  const canvas = document.createElement('canvas');
+  canvas.width = 280;
+  canvas.height = 320;
+  canvas.className = 'why-canvas';
+  left.appendChild(canvas);
+
+  // 오른쪽: 설명
+  const right = document.createElement('div');
+  right.className = 'why-col-text';
+  right.innerHTML = `
+    <h2 class="why-hook-name" style="color:#00ff88">useState</h2>
+    <p class="why-hook-desc">값이 바뀌면<br>화면이 자동으로 다시 그려집니다</p>
+    <div class="why-divider"></div>
+    <div class="why-compare">
+      <div class="why-compare-bad">
+        <strong>일반 변수라면:</strong><br>
+        <code>x = 240</code><br>
+        → 화면 변화 없음 ❌
+      </div>
+      <div class="why-compare-good">
+        <strong>useState라면:</strong><br>
+        <code>const [x, setX] = useState(240)</code><br>
+        <code>setX(300)</code><br>
+        → 화면 자동 업데이트 ✅
+      </div>
+    </div>
+  `;
+
+  section.appendChild(left);
+  section.appendChild(right);
+
+  // 애니메이션: L 블록이 좌→우 이동
+  let blockX = 40;
+  let blockY = 160;
+  let dx = 1.5;
+  let angle = 0;
+  let rafId: number | null = null;
+
+  function animate(): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 280, 320);
+
+    // 배경 그리드
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 0.5;
+    for (let gx = 0; gx < 280; gx += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, 320);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < 320; gy += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(280, gy);
+      ctx.stroke();
+    }
+
+    // 블록 이동
+    blockX += dx;
+    if (blockX > 240 || blockX < 40) dx = -dx;
+    angle += 0.005;
+
+    drawBlock(ctx, blockX, blockY, angle, L_CELLS, COLORS.L);
+
+    // 좌표 표시
+    ctx.fillStyle = '#00ff88';
+    ctx.font = '14px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`x: ${Math.round(blockX)}px`, blockX, blockY + 50);
+    ctx.fillText(`y: ${Math.round(blockY)}px`, blockX, blockY + 68);
+    ctx.fillText(`angle: ${(((angle * 180) / Math.PI) % 360).toFixed(0)}°`, blockX, blockY + 86);
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  observeCanvas(
+    section,
+    () => {
+      if (!rafId) rafId = requestAnimationFrame(animate);
+    },
+    () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    },
+  );
+
+  return section;
+}
+
+// ============================================================
+// 섹션 2: useEffect — 블록 낙하 시작/정지
+// ============================================================
+
+function createUseEffectSection(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'why-section why-two-col why-two-col-reverse';
+
+  // 왼쪽: 설명
+  const left = document.createElement('div');
+  left.className = 'why-col-text';
+  left.innerHTML = `
+    <h2 class="why-hook-name" style="color:#4ecdc4">useEffect</h2>
+    <p class="why-hook-desc">컴포넌트가 화면에 나타났을 때<br>딱 한 번 자동으로 실행됩니다</p>
+    <div class="why-divider"></div>
+    <p class="why-hook-detail">
+      쉽게 말하면:<br>
+      <em>"게임 시작 버튼을 누르면<br>블록이 떨어지기 시작합니다"</em>
+    </p>
+    <p class="why-hook-detail" style="margin-top:16px">
+      <strong style="color:#ffe66d">cleanup이란:</strong><br>
+      <em>"게임이 끝나면 블록 낙하도 멈춥니다"</em>
+    </p>
+  `;
+
+  // 오른쪽: 캔버스 + 버튼
+  const right = document.createElement('div');
+  right.className = 'why-col-visual';
+  const canvas = document.createElement('canvas');
+  canvas.width = 280;
+  canvas.height = 320;
+  canvas.className = 'why-canvas';
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'why-btn-group';
+  const startBtn = document.createElement('button');
+  startBtn.className = 'why-btn why-btn-start';
+  startBtn.textContent = '▶ 시작 (mount)';
+  const stopBtn = document.createElement('button');
+  stopBtn.className = 'why-btn why-btn-stop';
+  stopBtn.textContent = '■ 정지 (cleanup)';
+
+  btnGroup.appendChild(startBtn);
+  btnGroup.appendChild(stopBtn);
+  right.appendChild(canvas);
+  right.appendChild(btnGroup);
+
+  section.appendChild(left);
+  section.appendChild(right);
+
+  // 애니메이션: I 블록 낙하
+  let blockY = 30;
+  let falling = false;
+  let rafId: number | null = null;
+  let sectionVisible = false;
+
+  function draw(): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 280, 320);
+
+    // 배경 그리드
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 0.5;
+    for (let gx = 0; gx < 280; gx += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, 320);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < 320; gy += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(280, gy);
+      ctx.stroke();
+    }
+
+    if (falling) {
+      blockY += 1.5;
+      if (blockY > 300) blockY = 30; // 리셋
+    }
+
+    drawBlock(ctx, 140, blockY, 0, I_CELLS, COLORS.I);
+
+    // 상태 표시
+    ctx.fillStyle = falling ? '#00ff88' : '#f44';
+    ctx.font = '14px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(falling ? 'useEffect 실행 중...' : '대기 중', 140, 310);
+
+    if (sectionVisible) {
+      rafId = requestAnimationFrame(draw);
+    }
+  }
+
+  startBtn.addEventListener('click', () => {
+    falling = true;
+    blockY = 30;
+  });
+
+  stopBtn.addEventListener('click', () => {
+    falling = false;
+  });
+
+  observeCanvas(
+    section,
+    () => {
+      sectionVisible = true;
+      if (!rafId) rafId = requestAnimationFrame(draw);
+    },
+    () => {
+      sectionVisible = false;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      falling = false;
+    },
+  );
+
+  return section;
+}
+
+// ============================================================
+// 섹션 3: useMemo — 충돌 계산 횟수 비교
+// ============================================================
+
+function createUseMemoSection(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'why-section why-two-col';
+
+  // 왼쪽: 캔버스
+  const left = document.createElement('div');
+  left.className = 'why-col-visual';
+  const canvas = document.createElement('canvas');
+  canvas.width = 280;
+  canvas.height = 320;
+  canvas.className = 'why-canvas';
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'why-btn-group';
+  const offBtn = document.createElement('button');
+  offBtn.className = 'why-btn why-btn-stop';
+  offBtn.textContent = 'useMemo OFF';
+  const onBtn = document.createElement('button');
+  onBtn.className = 'why-btn why-btn-start';
+  onBtn.textContent = 'useMemo ON';
+  btnGroup.appendChild(offBtn);
+  btnGroup.appendChild(onBtn);
+  left.appendChild(canvas);
+  left.appendChild(btnGroup);
+
+  // 오른쪽: 설명
+  const right = document.createElement('div');
+  right.className = 'why-col-text';
+  right.innerHTML = `
+    <h2 class="why-hook-name" style="color:#ffe66d">useMemo</h2>
+    <p class="why-hook-desc">결과가 바뀔 때만<br>다시 계산합니다</p>
+    <div class="why-divider"></div>
+    <p class="why-hook-detail">
+      쉽게 말하면:<br>
+      <em>"블록이 움직일 때마다<br>충돌 계산을 처음부터 다시 하면<br>느려집니다.<br>
+      바뀐 것만 다시 계산합니다"</em>
+    </p>
+  `;
+
+  section.appendChild(left);
+  section.appendChild(right);
+
+  // 애니메이션: 쌓인 블록 + 새 블록 낙하 + 충돌 점
+  let useMemoOn = true;
+  let calcCountOff = 0;
+  let calcCountOn = 0;
+  let frameCount = 0;
+  let fallingY = 20;
+  let rafId: number | null = null;
+
+  // 바닥에 쌓인 블록 위치들
+  const stackedBlocks = [
+    { x: 56, y: 280 },
+    { x: 84, y: 280 },
+    { x: 112, y: 280 },
+    { x: 140, y: 280 },
+    { x: 168, y: 280 },
+    { x: 196, y: 280 },
+    { x: 224, y: 280 },
+    { x: 84, y: 252 },
+    { x: 112, y: 252 },
+    { x: 140, y: 252 },
+    { x: 168, y: 252 },
+    { x: 196, y: 252 },
+  ];
+
+  offBtn.addEventListener('click', () => {
+    useMemoOn = false;
+    calcCountOff = 0;
+    calcCountOn = 0;
+    frameCount = 0;
+    fallingY = 20;
+  });
+
+  onBtn.addEventListener('click', () => {
+    useMemoOn = true;
+    calcCountOff = 0;
+    calcCountOn = 0;
+    frameCount = 0;
+    fallingY = 20;
+  });
+
+  function animate(): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 280, 320);
+
+    frameCount++;
+    fallingY += 1;
+    if (fallingY > 240) fallingY = 20;
+
+    // 쌓인 블록 그리기
+    for (const b of stackedBlocks) {
+      ctx.fillStyle = '#333';
+      ctx.fillRect(b.x - CELL / 2, b.y - CELL / 2, CELL, CELL);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x - CELL / 2, b.y - CELL / 2, CELL, CELL);
+    }
+
+    // 낙하 블록
+    drawBlock(ctx, 140, fallingY, 0, T_CELLS, COLORS.T);
+
+    // 충돌 계산 시각화
+    if (!useMemoOn) {
+      // OFF: 매 프레임 모든 블록에 빨간 점
+      calcCountOff++;
+      for (const b of stackedBlocks) {
+        ctx.fillStyle = 'rgba(255, 68, 68, 0.8)';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // ON: 낙하 블록 근처만 빨간 점 (가까운 블록만)
+      const nearBlocks = stackedBlocks.filter(
+        (b) => Math.abs(b.x - 140) < 60 && Math.abs(b.y - fallingY) < 80,
+      );
+      if (nearBlocks.length > 0) calcCountOn++;
+      for (const b of nearBlocks) {
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.8)';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 카운터 표시
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px Consolas, monospace';
+    ctx.textAlign = 'left';
+    if (!useMemoOn) {
+      ctx.fillStyle = '#f44';
+      ctx.fillText(`useMemo OFF — 충돌 계산: ${calcCountOff}회`, 10, 18);
+    } else {
+      ctx.fillStyle = '#00ff88';
+      ctx.fillText(`useMemo ON — 충돌 계산: ${calcCountOn}회`, 10, 18);
+    }
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  observeCanvas(
+    section,
+    () => {
+      if (!rafId) rafId = requestAnimationFrame(animate);
+    },
+    () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    },
+  );
+
+  return section;
+}
+
+// ============================================================
+// 섹션 4: Component 분리 — 컴포넌트 트리 + 하이라이트
+// ============================================================
+
+function createComponentSection(): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'why-section why-component';
+
+  const header = document.createElement('div');
+  header.className = 'why-component-header';
+  header.innerHTML = `
+    <h2 class="why-hook-name" style="color:#4ecdc4">왜 UI를 나눠서 만들까?</h2>
+    <p class="why-hook-desc">블록이 움직일 때<br>점수판은 다시 그릴 필요가 없습니다</p>
+  `;
+
+  const body = document.createElement('div');
+  body.className = 'why-component-body';
+
+  // 왼쪽: 캔버스
+  const left = document.createElement('div');
+  left.className = 'why-col-visual';
+  const canvas = document.createElement('canvas');
+  canvas.width = 280;
+  canvas.height = 320;
+  canvas.className = 'why-canvas';
+  left.appendChild(canvas);
+
+  // 오른쪽: 컴포넌트 트리 (DOM)
+  const right = document.createElement('div');
+  right.className = 'why-col-text why-tree';
+  right.innerHTML = `
+    <div class="why-tree-node why-tree-root">TetrisApp <span style="color:#666">← State 소유</span></div>
+    <div class="why-tree-node" id="why-tree-block">├── Block <span class="why-tree-badge why-badge-red">🔴 렌더링</span></div>
+    <div class="why-tree-node" id="why-tree-board">├── Board <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
+    <div class="why-tree-node" id="why-tree-score">├── Score <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
+    <div class="why-tree-node" id="why-tree-hold">└── Hold <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
+    <p class="why-tree-note">Block이 움직일 때<br>Block만 다시 그립니다</p>
+  `;
+
+  body.appendChild(left);
+  body.appendChild(right);
+  section.appendChild(header);
+  section.appendChild(body);
+
+  // 애니메이션: 블록 이동 + 트리 노드 깜빡임
+  let blockX = 80;
+  let blockDx = 1.2;
+  let blinkTimer = 0;
+  let rafId: number | null = null;
+
+  function animate(): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 280, 320);
+
+    // 배경 그리드
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 0.5;
+    for (let gx = 0; gx < 280; gx += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, 320);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < 320; gy += CELL) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(280, gy);
+      ctx.stroke();
+    }
+
+    // 바닥 블록들
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = '#333';
+      ctx.fillRect(i * CELL, 292, CELL, CELL);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.strokeRect(i * CELL, 292, CELL, CELL);
+    }
+
+    // 이동하는 블록
+    blockX += blockDx;
+    if (blockX > 220 || blockX < 60) blockDx = -blockDx;
+    drawBlock(ctx, blockX, 160, 0, T_CELLS, COLORS.T);
+
+    // 트리 노드 깜빡임
+    blinkTimer++;
+    const blockNode = document.getElementById('why-tree-block');
+    if (blockNode) {
+      if (blinkTimer % 30 < 15) {
+        blockNode.style.color = '#f44';
+        blockNode.style.textShadow = '0 0 8px rgba(255,68,68,0.5)';
+      } else {
+        blockNode.style.color = '#fff';
+        blockNode.style.textShadow = 'none';
+      }
+    }
+
+    rafId = requestAnimationFrame(animate);
+  }
+
+  observeCanvas(
+    section,
+    () => {
+      if (!rafId) rafId = requestAnimationFrame(animate);
+    },
+    () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    },
+  );
+
+  return section;
+}
+
+// ============================================================
+// 메인 export
 // ============================================================
 
 /**
- * Why Tetris 탭의 HTML 구조를 생성한다.
- * 일반 테트리스 vs 물리 테트리스 비교 + 컴포넌트 트리 시각화
+ * Why 탭 전체 구조를 생성한다.
+ * Apple Watch 스타일 스크롤 섹션 (5개)
  */
 export function createWhyTab(): HTMLElement {
   const container = document.createElement('div');
+  container.className = 'why-container';
 
-  container.innerHTML = `
-    <div class="info-section">
-      <h2>왜 물리 테트리스인가?</h2>
-      <div class="comparison-grid">
-        <div class="comparison-col">
-          <h4>일반 테트리스</h4>
-          <p>블록 = 그리드 단위 이동</p>
-          <p>회전 = 90도 단위</p>
-          <p>라인 = 행 전체 삭제</p>
-        </div>
-        <div class="comparison-col">
-          <h4>물리 테트리스</h4>
-          <p>블록 = <strong>Component</strong></p>
-          <p>State = 위치/각도/속도</p>
-          <p>useEffect = 게임 루프</p>
-          <p>useMemo = 충돌 캐싱</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="info-section">
-      <h2>컴포넌트 트리 시각화</h2>
-      <div class="tree-view"><span class="component">&lt;TetrisApp&gt;</span>          ← 루트: State 소유 (Lifting State Up)
-├── <span class="component">&lt;Board /&gt;</span>        ← <span class="props">props: board</span>
-├── <span class="component">&lt;Block /&gt;</span>        ← <span class="props">props: x, y, angle, color</span>
-├── <span class="component">&lt;Score /&gt;</span>        ← <span class="props">props: score, level</span>
-├── <span class="component">&lt;Preview /&gt;</span>      ← <span class="props">props: nextPiece</span>
-└── <span class="component">&lt;HoldPanel /&gt;</span>    ← <span class="props">props: heldPiece</span></div>
-      <p style="margin-top: 12px; color: #ffffff; font-size: 16px;">
-        → State는 TetrisApp(루트)에서만 관리<br>
-        → 자식은 props만 받는 순수 함수
-      </p>
-    </div>
-
-    <div class="info-section">
-      <h2>라인 절단 — 핵심 차별점</h2>
-      <p style="color: #ffffff; font-size: 16px; line-height: 1.8;">
-        기울어진 블록이 완성된 라인에 걸쳐있을 때,<br>
-        <strong style="color: #00ff88">cutPieceAtLine()</strong>이 블록을 수평으로 절단합니다.<br>
-        절단된 위 조각은 다시 중력과 충돌의 영향을 받아 떨어집니다.<br><br>
-        이것이 일반 테트리스와의 결정적 차이이며,<br>
-        복잡한 상태 변화를 <strong style="color: #ffe66d">선언적으로 처리</strong>할 수 있는 이유를 증명합니다.
-      </p>
-    </div>
-  `;
+  container.appendChild(createIntroSection());
+  container.appendChild(createUseStateSection());
+  container.appendChild(createUseEffectSection());
+  container.appendChild(createUseMemoSection());
+  container.appendChild(createComponentSection());
 
   return container;
 }
