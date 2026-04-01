@@ -1,22 +1,20 @@
 // ============================================================
 // src/app/index.ts — 4탭 SPA 진입점
-// Not Tetris 2 방식 물리 테트리스 + 발표용 시각화 탭
+// Matter.js 기반 Not Tetris 2 물리 테트리스
 // ============================================================
 
-import type { NotTetrisState } from '../../contracts';
 import {
-  initNotTetrisState,
-  nextTick,
-  moveActive,
-  hardDrop,
-  holdPiece,
-  softDrop,
-  applyRotation,
-  snapRotate,
-  BOARD_WIDTH,
-  BOARD_HEIGHT,
-} from '../physics/notTetrisState';
-import { renderFrame, renderPreviewBody } from '../physics/renderer';
+  initMatterState,
+  updateMatter,
+  lockAndSpawnNew,
+  snapRotateMatter,
+  hardDropMatter,
+  holdMatter,
+  type MatterGameState,
+} from '../physics/matterState';
+import { renderMatterFrame, renderPreviewKind } from '../physics/matterRenderer';
+import { BOARD_WIDTH, BOARD_HEIGHT } from '../physics/matterEngine';
+import Matter from 'matter-js';
 
 // 탭 모듈
 import { createPlayTab } from './tabs/play';
@@ -29,18 +27,21 @@ import { metricsStore } from './metricsStore';
 // 게임 상태
 // ============================================================
 
-let gameState: NotTetrisState = initNotTetrisState();
+let gameState: MatterGameState = initMatterState();
 let isRunning = false;
 let isPaused = false;
 let animFrameId: number | null = null;
 let renderIndex = 0;
 let lastTimestamp = 0;
+
+// 키 상태 추적
 const pressedKeys = new Set<string>();
-let moveInterval: ReturnType<typeof setInterval> | null = null;
-let prevBodiesCount = 0;
+
+// Flamegraph 추적
 let prevScore = 0;
-let prevNextColor = '';
-let prevHeldColor = '';
+let prevBodiesCount = 0;
+let prevNextKind = 0;
+let prevHeldKind: number | null = null;
 
 // ============================================================
 // 탭 라우팅
@@ -61,23 +62,42 @@ function getCurrentTab(): TabId {
 }
 
 function switchTab(tabId: TabId): void {
-  document.querySelectorAll('.tab-content').forEach((el) => {
-    el.classList.remove('active');
-  });
-  document.querySelectorAll('.nav-tab').forEach((el) => {
-    el.classList.remove('active');
-  });
-
-  const content = document.getElementById(`tab-${tabId}`);
-  const button = document.getElementById(`btn-${tabId}`);
-  if (content) content.classList.add('active');
-  if (button) button.classList.add('active');
-
-  if (tabId === 'flamegraph') {
-    refreshFlamegraph();
-  }
-
+  document.querySelectorAll('.tab-content').forEach((el) => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach((el) => el.classList.remove('active'));
+  document.getElementById(`tab-${tabId}`)?.classList.add('active');
+  document.getElementById(`btn-${tabId}`)?.classList.add('active');
+  if (tabId === 'flamegraph') refreshFlamegraph();
   window.location.hash = tabId;
+}
+
+// ============================================================
+// 현재 키 상태 → updateMatter에 전달
+// ============================================================
+
+function getCurrentKeys() {
+  return {
+    left: pressedKeys.has('ArrowLeft'),
+    right: pressedKeys.has('ArrowRight'),
+    rotateLeft: pressedKeys.has('q') || pressedKeys.has('Q'),
+    rotateRight: pressedKeys.has('e') || pressedKeys.has('E'),
+    down: pressedKeys.has('ArrowDown'),
+  };
+}
+
+// ============================================================
+// 착지 감지: 활성 블록이 바닥/블록과 접촉 중인지
+// ============================================================
+
+function isBodyOnGround(state: MatterGameState): boolean {
+  if (!state.activeBody) return false;
+  // Matter.js 충돌 쌍에서 activeBody가 포함된 것이 있는지 확인
+  const pairs = state.engine.pairs.list;
+  return pairs.some(
+    (pair: any) =>
+      (pair.bodyA === state.activeBody || pair.bodyB === state.activeBody ||
+       pair.bodyA.parent === state.activeBody || pair.bodyB.parent === state.activeBody) &&
+      pair.isActive
+  );
 }
 
 // ============================================================
@@ -89,21 +109,30 @@ function gameLoop(timestamp: number): void {
 
   const startTime = performance.now();
 
-  // delta time 계산 (초 단위)
-  const dt = lastTimestamp === 0 ? 0.016 : (timestamp - lastTimestamp) / 1000;
+  const dt = lastTimestamp > 0
+    ? Math.min((timestamp - lastTimestamp) / 1000, 0.05)
+    : 1 / 60;
   lastTimestamp = timestamp;
 
-  // 물리 상태 업데이트
-  gameState = nextTick(gameState, dt);
+  // 착지 감지: 속도가 거의 0이고 바닥/블록에 닿아있으면 새 블록 생성
+  if (gameState.activeBody) {
+    const vel = gameState.activeBody.velocity;
+    const speed = Math.sqrt(vel.x ** 2 + vel.y ** 2);
+    if (speed < 0.3 && isBodyOnGround(gameState)) {
+      gameState = lockAndSpawnNew(gameState);
+    }
+  }
+
+  // Matter.js 물리 업데이트 + 키 입력
+  gameState = updateMatter(gameState, dt, getCurrentKeys());
 
   // Canvas 렌더링
   const boardCanvas = document.getElementById('board-canvas') as HTMLCanvasElement | null;
   if (boardCanvas) {
     const ctx = boardCanvas.getContext('2d');
     if (ctx) {
-      renderFrame(ctx, gameState.bodies, gameState.activeBody, BOARD_WIDTH, BOARD_HEIGHT);
+      renderMatterFrame(ctx, gameState.engine, gameState.activeBody);
 
-      // 게임 오버 오버레이
       if (gameState.isGameOver) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
@@ -118,57 +147,41 @@ function gameLoop(timestamp: number): void {
     }
   }
 
-  // 사이드 패널 업데이트
-  updateScoreDisplay(gameState);
+  // 사이드 패널
+  updateScoreDisplay();
+  renderPreviewCanvases();
 
-  const nextCanvas = document.getElementById('next-canvas') as HTMLCanvasElement | null;
-  if (nextCanvas) {
-    renderPreviewBody(nextCanvas, gameState.nextBody);
-  }
-
-  const holdCanvas = document.getElementById('hold-canvas') as HTMLCanvasElement | null;
-  if (holdCanvas) {
-    renderPreviewBody(holdCanvas, gameState.heldBody);
-  }
-
-  // Flamegraph 데이터 기록 — 컴포넌트별 개별 record
+  // Flamegraph 기록
   const totalDuration = performance.now() - startTime;
   const ri = renderIndex++;
   const ts = performance.now();
-
-  // GameLoop 전체
   metricsStore.record({ componentName: 'GameLoop', duration: totalDuration, timestamp: ts, renderIndex: ri });
 
-  // Block: 매 프레임 렌더링 (activeBody가 있을 때)
   if (gameState.activeBody) {
     metricsStore.record({ componentName: 'Block', duration: totalDuration * 0.4, timestamp: ts, renderIndex: ri });
   }
 
-  // Board: 블록 고정 시만 (bodies 수 변화 감지)
-  if (prevBodiesCount !== gameState.bodies.length) {
+  const currentBodiesCount = Matter.Composite.allBodies(gameState.engine.world).filter(b => !b.isStatic).length;
+  if (prevBodiesCount !== currentBodiesCount) {
     metricsStore.record({ componentName: 'Board', duration: totalDuration * 0.3, timestamp: ts, renderIndex: ri });
-    prevBodiesCount = gameState.bodies.length;
+    prevBodiesCount = currentBodiesCount;
   }
 
-  // Score: 점수 변경 시만
   if (prevScore !== gameState.score) {
     metricsStore.record({ componentName: 'Score', duration: 0.5, timestamp: ts, renderIndex: ri });
     prevScore = gameState.score;
   }
 
-  // Preview: next 블록 변경 시
-  if (prevNextColor !== gameState.nextBody.color) {
+  if (prevNextKind !== gameState.nextKind) {
     metricsStore.record({ componentName: 'Preview', duration: 0.3, timestamp: ts, renderIndex: ri });
-    prevNextColor = gameState.nextBody.color;
+    prevNextKind = gameState.nextKind;
   }
 
-  // HoldPanel: hold 블록 변경 시
-  if (prevHeldColor !== (gameState.heldBody?.color ?? '')) {
+  if (prevHeldKind !== gameState.heldKind) {
     metricsStore.record({ componentName: 'HoldPanel', duration: 0.2, timestamp: ts, renderIndex: ri });
-    prevHeldColor = gameState.heldBody?.color ?? '';
+    prevHeldKind = gameState.heldKind;
   }
 
-  // 게임 오버 시 루프 중단
   if (gameState.isGameOver) {
     isRunning = false;
     metricsStore.setLive(false);
@@ -178,25 +191,39 @@ function gameLoop(timestamp: number): void {
   animFrameId = requestAnimationFrame(gameLoop);
 }
 
-function updateScoreDisplay(state: NotTetrisState): void {
+function updateScoreDisplay(): void {
   const scoreEl = document.getElementById('score-value');
   const levelEl = document.getElementById('level-value');
   const linesEl = document.getElementById('lines-value');
-  if (scoreEl) scoreEl.textContent = String(state.score);
-  if (levelEl) levelEl.textContent = String(state.level);
-  if (linesEl) linesEl.textContent = String(state.linesCleared);
+  if (scoreEl) scoreEl.textContent = String(gameState.score);
+  if (levelEl) levelEl.textContent = String(gameState.level);
+  if (linesEl) linesEl.textContent = String(gameState.linesCleared);
+}
+
+function renderPreviewCanvases(): void {
+  const nextCanvas = document.getElementById('next-canvas') as HTMLCanvasElement | null;
+  if (nextCanvas) {
+    const ctx = nextCanvas.getContext('2d');
+    if (ctx) renderPreviewKind(ctx, gameState.nextKind);
+  }
+
+  const holdCanvas = document.getElementById('hold-canvas') as HTMLCanvasElement | null;
+  if (holdCanvas) {
+    const ctx = holdCanvas.getContext('2d');
+    if (ctx) renderPreviewKind(ctx, gameState.heldKind);
+  }
 }
 
 function startGame(): void {
-  gameState = initNotTetrisState();
+  gameState = initMatterState();
   isRunning = true;
   isPaused = false;
   renderIndex = 0;
   lastTimestamp = 0;
   prevBodiesCount = 0;
   prevScore = 0;
-  prevNextColor = '';
-  prevHeldColor = '';
+  prevNextKind = 0;
+  prevHeldKind = null;
   metricsStore.clear();
   metricsStore.setLive(true);
   animFrameId = requestAnimationFrame(gameLoop);
@@ -206,80 +233,43 @@ function togglePause(): void {
   if (!isRunning) return;
   isPaused = !isPaused;
   if (!isPaused) {
-    lastTimestamp = 0; // dt 리셋하여 큰 점프 방지
+    lastTimestamp = 0;
     animFrameId = requestAnimationFrame(gameLoop);
   }
 }
 
 // ============================================================
-// 키보드 입력 처리 (key repeat 지원)
+// 키보드 입력
 // ============================================================
-
-/** 좌우 이동 실행 (key repeat용) */
-function executeMoveKeys(): void {
-  if (!isRunning || isPaused || gameState.isGameOver) return;
-  if (pressedKeys.has('ArrowLeft')) {
-    gameState = moveActive(gameState, 'left');
-  }
-  if (pressedKeys.has('ArrowRight')) {
-    gameState = moveActive(gameState, 'right');
-  }
-}
 
 function handleKeyDown(e: KeyboardEvent): void {
   if (!isRunning || isPaused || gameState.isGameOver) return;
 
+  pressedKeys.add(e.key);
+
   switch (e.key) {
     case 'ArrowLeft':
     case 'ArrowRight':
+    case 'ArrowDown':
       e.preventDefault();
-      if (pressedKeys.has(e.key)) return; // OS repeat 방지
-      pressedKeys.add(e.key);
-      // 즉시 1번 이동
-      gameState = moveActive(gameState, e.key === 'ArrowLeft' ? 'left' : 'right');
-      // 150ms 후 repeat 시작 → 50ms 간격 반복
-      if (moveInterval) clearInterval(moveInterval);
-      setTimeout(() => {
-        if (pressedKeys.has('ArrowLeft') || pressedKeys.has('ArrowRight')) {
-          moveInterval = setInterval(executeMoveKeys, 50);
-        }
-      }, 150);
       break;
     case 'ArrowUp':
       e.preventDefault();
-      gameState = snapRotate(gameState);
-      break;
-    case 'ArrowDown':
-      e.preventDefault();
-      gameState = softDrop(gameState);
+      gameState = snapRotateMatter(gameState);
       break;
     case ' ':
       e.preventDefault();
-      gameState = hardDrop(gameState);
-      break;
-    case 'q':
-    case 'Q':
-      gameState = applyRotation(gameState, 'ccw');
-      break;
-    case 'e':
-    case 'E':
-      gameState = applyRotation(gameState, 'cw');
+      gameState = hardDropMatter(gameState);
       break;
     case 'r':
     case 'R':
-      gameState = holdPiece(gameState);
+      gameState = holdMatter(gameState);
       break;
   }
 }
 
 function handleKeyUp(e: KeyboardEvent): void {
   pressedKeys.delete(e.key);
-  if (!pressedKeys.has('ArrowLeft') && !pressedKeys.has('ArrowRight')) {
-    if (moveInterval) {
-      clearInterval(moveInterval);
-      moveInterval = null;
-    }
-  }
 }
 
 // ============================================================
@@ -290,7 +280,7 @@ function initApp(): void {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // 네비게이션 바
+  // 네비게이션
   const nav = document.createElement('nav');
   nav.className = 'nav-tabs';
   for (const tab of TABS) {
@@ -324,7 +314,6 @@ function initApp(): void {
   document.addEventListener('keydown', handleKeyDown);
   document.addEventListener('keyup', handleKeyUp);
 
-  // 버튼 이벤트
   document.getElementById('start-btn')?.addEventListener('click', startGame);
   document.getElementById('pause-btn')?.addEventListener('click', togglePause);
   document.getElementById('flamegraph-refresh-btn')?.addEventListener('click', refreshFlamegraph);

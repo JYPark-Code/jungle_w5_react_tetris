@@ -3,12 +3,12 @@
 // DOM 구조 생성만 담당. 렌더링은 index.ts + renderer.ts가 처리.
 // ============================================================
 
-// 보드 크기 상수 — 480x960 (비율 1:2)
-const CELL_SIZE = 28;
+// 보드 크기 상수 — Matter.js 기준 (32px셀, 10x18)
+const CELL_SIZE = 32;
 const BOARD_COLS = 10;
-const BOARD_ROWS = 20;
-const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;
-const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS;
+const BOARD_ROWS = 18;
+const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;  // 320px
+const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS; // 576px
 
 /**
  * Play 탭의 전체 HTML 구조를 생성한다.
