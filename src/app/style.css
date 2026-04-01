@@ -654,3 +654,399 @@ body {
   line-height: 1.8;
   font-family: inherit;
 }
+
+/* ============================================================
+   Tab 4 — 학습 패널 (Apple Watch 스타일 스크롤)
+   ============================================================ */
+
+/* 학습 탭 scroll-snap */
+#tab-lifecycle.active {
+  scroll-snap-type: y mandatory;
+  padding: 0;
+}
+
+.learn-container {
+  width: 100%;
+}
+
+/* 섹션 공통 */
+.learn-section {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  padding: 48px 80px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #1a1a2e;
+  color: #ffffff;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.learn-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 인트로 */
+.learn-intro {
+  flex-direction: column;
+  gap: 24px;
+  text-align: center;
+}
+
+.learn-title {
+  font-size: 36px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.learn-subtitle {
+  font-size: 20px;
+  color: #fff;
+  line-height: 1.8;
+}
+
+.learn-scroll-hint {
+  font-size: 14px;
+  color: #555;
+  margin-top: 24px;
+  animation: whyBounce 2s ease infinite;
+}
+
+/* 2컬럼 */
+.learn-two-col {
+  gap: 64px;
+}
+
+.learn-two-col-reverse {
+  flex-direction: row-reverse;
+}
+
+.learn-col-text {
+  max-width: 440px;
+}
+
+.learn-col-visual {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.learn-col-code {
+  flex-shrink: 0;
+}
+
+/* 섹션 1: Hook 배치 */
+.learn-heading {
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 24px;
+}
+
+.learn-hook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.learn-hook-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.learn-hook-label {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.learn-hook-desc {
+  font-size: 15px;
+  color: #ccc;
+  padding-left: 4px;
+}
+
+.learn-code {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 24px 28px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #fff;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* 문제 섹션 공통 */
+.learn-problem-badge {
+  display: inline-block;
+  background: #f44;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.learn-problem-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.learn-problem-divider {
+  height: 1px;
+  background: #333;
+  margin: 20px 0;
+}
+
+.learn-problem-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.learn-problem-cause {
+  background: #0d0d0d;
+  border-left: 3px solid #f44;
+  border-radius: 0 8px 8px 0;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #fff;
+}
+
+.learn-problem-cause strong {
+  color: #f44;
+}
+
+.learn-problem-solution {
+  background: #0d0d0d;
+  border-left: 3px solid #00ff88;
+  border-radius: 0 8px 8px 0;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #fff;
+}
+
+.learn-problem-solution strong {
+  color: #00ff88;
+}
+
+/* Batching / useMemo 카운터 데모 */
+.learn-counter-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 280px;
+}
+
+.learn-counter-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.learn-counter-label {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.learn-counter-detail {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.learn-counter-num {
+  font-size: 36px;
+  font-weight: bold;
+}
+
+/* Cleanup 데모 */
+.learn-cleanup-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 280px;
+}
+
+.learn-cleanup-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.learn-cleanup-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.learn-cleanup-loops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.learn-loop-bar {
+  display: block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.learn-cleanup-result {
+  font-size: 14px;
+  color: #ccc;
+}
+
+/* Hooks 순서 데모 */
+.learn-hooks-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 280px;
+}
+
+.learn-hooks-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.learn-hooks-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.learn-hooks-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.learn-hook-slot {
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #fff;
+}
+
+.learn-hooks-result {
+  font-size: 14px;
+  color: #00ff88;
+}
+
+/* Fiber 스케줄러 데모 */
+.learn-fiber-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 280px;
+}
+
+.learn-fiber-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.learn-fiber-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.learn-fiber-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.learn-fiber-item {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.learn-fiber-note {
+  font-size: 14px;
+  color: #888;
+}
+
+/* 섹션 7: React 비교 테이블 */
+.learn-comparison {
+  flex-direction: column;
+  gap: 32px;
+}
+
+.learn-comparison-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.learn-table {
+  width: 100%;
+  max-width: 800px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.learn-table th {
+  background: #1a1a2e;
+  color: #4ecdc4;
+  padding: 14px 20px;
+  text-align: left;
+  border-bottom: 2px solid #333;
+  font-weight: bold;
+}
+
+.learn-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid #222;
+  color: #fff;
+}
+
+.learn-table a {
+  color: #4ecdc4;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.learn-table a:hover {
+  text-decoration: underline;
+}
