@@ -269,8 +269,8 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
 export function checkLanding(body: Body, statics: Body[]): boolean {
   if (body.isStatic) return false;
 
-  // 1px 아래 테스트 위치
-  const testPos: Vec2 = { x: body.position.x, y: body.position.y + 1 };
+  // 3px 아래 테스트 — resolveBodyCollisions 보정(0.4*depth)보다 커야 안정 감지
+  const testPos: Vec2 = { x: body.position.x, y: body.position.y + 3 };
 
   // 바닥 체크
   const testVerts = body.parts.flatMap(p => getWorldVerts(p, testPos, body.angle));

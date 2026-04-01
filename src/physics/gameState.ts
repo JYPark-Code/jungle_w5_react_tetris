@@ -138,6 +138,7 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
     else lockTimer -= safeDt;
 
     if (lockTimer <= 0) {
+      console.log('[Lock]', 'score:', score, 'lines:', linesCleared);
       // 블록 고정
       bodies = bodies.map(b =>
         b.id === activeId
@@ -178,9 +179,7 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
         isGameOver, lockTimer: 0,
       };
     }
-  } else {
-    lockTimer = 0;
-  }
+  } // lockTimer 리셋 삭제 — 충돌 보정으로 순간적으로 떠도 타이머 유지
 
   return { ...state, bodies, lockTimer, score, linesCleared, level, clearCooldown };
 }
