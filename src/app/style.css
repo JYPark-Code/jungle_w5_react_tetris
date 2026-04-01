@@ -85,8 +85,13 @@ body {
 
 .play-container {
   display: flex;
-  gap: 24px;
+  justify-content: center;
   align-items: flex-start;
+  width: 100%;
+  height: calc(100vh - 48px);
+  gap: 24px;
+  padding: 0 24px;
+  box-sizing: border-box;
   animation: fadeIn 0.2s ease;
 }
 
@@ -353,7 +358,14 @@ body {
 
 /* Flamegraph 탭 */
 .flamegraph-container {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 48px;
+  box-sizing: border-box;
 }
 
 .flamegraph-canvas-wrapper {
