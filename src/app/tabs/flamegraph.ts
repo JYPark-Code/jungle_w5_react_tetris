@@ -21,8 +21,8 @@ export function createFlamegraphTab(): HTMLElement {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h2 style="margin:0;">📊 렌더링 메트릭 <span id="live-indicator" style="color:#666;font-size:12px;">⚫ IDLE</span></h2>
         <div style="display:flex;gap:8px;">
-          <button class="game-btn" id="flamegraph-refresh-btn" style="padding:6px 12px;font-size:12px;">새로고침</button>
-          <button class="game-btn pause" id="flamegraph-clear-btn" style="padding:6px 12px;font-size:12px;">초기화</button>
+          <button class="game-btn" id="flamegraph-refresh-btn" style="padding:6px 16px;font-size:12px;white-space:nowrap;">새로고침</button>
+          <button class="game-btn pause" id="flamegraph-clear-btn" style="padding:6px 16px;font-size:12px;white-space:nowrap;">초기화</button>
         </div>
       </div>
       <div style="font-size:11px;color:#666;margin-bottom:8px;">
