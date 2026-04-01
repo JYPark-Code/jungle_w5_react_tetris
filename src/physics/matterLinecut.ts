@@ -69,9 +69,9 @@ export function removeLine(
   const lineTop = row * cellSize;
   const lineBottom = lineTop + cellSize;
 
-  // isActive=true인 블록(현재 조작 중)은 제외 — 핵심 버그 수정
+  // activeBody도 라인 클리어 대상에 포함
   const bodies = Matter.Composite.allBodies(engine.world)
-    .filter(b => !b.isStatic && (b as any).kind && !(b as any).isActive);
+    .filter(b => !b.isStatic && (b as any).kind);
 
   for (const body of bodies) {
     const allParts = body.parts.length > 1 ? body.parts.slice(1) : [body];

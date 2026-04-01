@@ -153,17 +153,33 @@ export function updateMatter(
       removeLine(state.engine, lineNo, CELL_SIZE);
     }
 
+    // activeBody가 클리어로 world에서 제거됐는지 확인
+    const stillInWorld = state.activeBody &&
+      Matter.Composite.allBodies(state.engine.world)
+        .some(b => b === state.activeBody || b === (state.activeBody as any)?.parent);
+
+    // 제거됐으면 새 블록 스폰
+    const newActive = stillInWorld
+      ? state.activeBody
+      : createTetromino(state.engine, state.nextKind, BOARD_WIDTH / 2, CELL_SIZE * 1.5);
+
+    const newNextKind = stillInWorld
+      ? state.nextKind
+      : Math.ceil(Math.random() * 7);
+
     const scoreAdd = calcScore(linesToClear.length, lineAreas, linesToClear, state.level);
     const newLinesCleared = state.linesCleared + linesToClear.length;
     const newLevel = Math.floor(newLinesCleared / 10) + 1;
 
     newState = {
       ...newState,
+      activeBody: newActive,
+      nextKind: newNextKind,
       score: state.score + scoreAdd,
       linesCleared: newLinesCleared,
       level: newLevel,
       isCutting: true,
-      cuttingTimer: 1.5,  // 파편이 충분히 정착할 시간 확보
+      cuttingTimer: 1.5,
     };
   } else if (state.isCutting) {
     const newTimer = state.cuttingTimer - dt;
