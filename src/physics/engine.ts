@@ -220,7 +220,7 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
     ...b, position: { ...b.position }, velocity: { ...b.velocity },
   }));
   // 3회 반복으로 깊은 겹침도 완전 해소
-  for (let iter = 0; iter < 1; iter++) {
+  for (let iter = 0; iter < 2; iter++) {
   for (let i = 0; i < result.length; i++) {
     for (let j = i + 1; j < result.length; j++) {
       const a = result[i], b = result[j];
@@ -241,8 +241,11 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
           if (!col.colliding || col.depth < 0.01) continue;
           // 위치 보정
           const corr = v2.scale(col.normal, col.depth);
-          if (!a.isStatic) result[i].position = v2.sub(result[i].position, v2.scale(corr, 0.08));
-          if (!b.isStatic) result[j].position = v2.add(result[j].position, v2.scale(corr, 0.08));
+          // 상대가 static이면 강하게, 아니면 약하게 보정
+          const corrRateA = b.isStatic ? 0.4 : 0.08;
+          const corrRateB = a.isStatic ? 0.4 : 0.08;
+          if (!a.isStatic) result[i].position = v2.sub(result[i].position, v2.scale(corr, corrRateA));
+          if (!b.isStatic) result[j].position = v2.add(result[j].position, v2.scale(corr, corrRateB));
           // 충격량 계산 (impulse)
           const rel = v2.sub(result[i].velocity, result[j].velocity);
           const vn = v2.dot(rel, col.normal);

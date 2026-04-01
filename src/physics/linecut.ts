@@ -1,12 +1,16 @@
 // ============================================================
-// linecut.ts — 라인 클리어 (Shoelace 면적 + 81% 임계값)
-// Sutherland-Hodgman 클리핑으로 다각형 절단
+// linecut.ts — 라인 클리어 (원본 gameA.lua 방식)
+// 각 Part를 개별 클리핑 + 위/아래 조각 모두 보존
 // ============================================================
 
-import { Body, Vec2, getWorldVerts } from './engine';
+import type { Body, Part, Vec2 } from './engine';
+import { getWorldVerts } from './engine';
 
-// 임계값: 셀 면적(1024) × 셀 수(10) × 81% ≈ 8294
+// 원본 Not Tetris 2: linecleartreshold = 8.1
+// 1024(한 셀 면적) * 8.1 = 8294.4 px²
 const THRESHOLD = 1024 * 8.1;
+
+let _fragId = 100000;
 
 /** Shoelace formula로 다각형 면적 계산 */
 function polygonArea(v: Vec2[]): number {
@@ -18,11 +22,15 @@ function polygonArea(v: Vec2[]): number {
   return Math.abs(a) / 2;
 }
 
-/** Sutherland-Hodgman 수평선 클리핑 */
-function clip(verts: Vec2[], lineY: number, keepAbove: boolean): Vec2[] {
+/**
+ * Sutherland-Hodgman 수평 클리핑
+ * keepBelow=false: y <= lineY 유지 (라인 위쪽)
+ * keepBelow=true:  y >= lineY 유지 (라인 아래쪽)
+ */
+function clipLine(verts: Vec2[], lineY: number, keepBelow: boolean): Vec2[] {
   if (!verts.length) return [];
   const out: Vec2[] = [];
-  const inside = (v: Vec2) => keepAbove ? v.y <= lineY : v.y >= lineY;
+  const inside = (v: Vec2) => keepBelow ? v.y >= lineY : v.y <= lineY;
   for (let i = 0; i < verts.length; i++) {
     const c = verts[i], n = verts[(i + 1) % verts.length];
     if (inside(c)) out.push(c);
@@ -34,14 +42,11 @@ function clip(verts: Vec2[], lineY: number, keepAbove: boolean): Vec2[] {
   return out;
 }
 
-/**
- * 각 행의 블록 점유 면적을 계산 (Shoelace 면적 기반)
- * 정적 블록만 대상 + 각 Part를 행 범위로 클리핑하여 면적 합산
- */
+/** 각 Part별 행 내 면적 계산 (원본 checklinedensity 대응) */
 export function checkLineDensity(
   bodies: Body[],
   boardH: number,
-  boardW: number,
+  _boardW: number,
   cellSize: number,
 ): { linesToClear: number[]; lineAreas: number[] } {
   const rows = Math.floor(boardH / cellSize);
@@ -51,54 +56,124 @@ export function checkLineDensity(
     if (!body.isStatic || body.kind === 0) continue;
     for (const part of body.parts) {
       const wv = getWorldVerts(part, body.position, body.angle);
+      const minY = Math.min(...wv.map(v => v.y));
+      const maxY = Math.max(...wv.map(v => v.y));
+
       for (let r = 0; r < rows; r++) {
-        const top = r * cellSize, bot = top + cellSize;
-        if (Math.min(...wv.map(v => v.y)) > bot || Math.max(...wv.map(v => v.y)) < top) continue;
-        // 행 범위로 2번 클리핑 (위+아래)
-        const clipped = clip(clip(wv, top, false), bot, true);
-        if (clipped.length >= 3) areas[r] += polygonArea(clipped);
+        const top = r * cellSize;
+        const bot = top + cellSize;
+        if (minY > bot || maxY < top) continue;
+
+        // 행 범위로 클리핑: top <= y <= bot
+        const inBand = clipLine(clipLine(wv, top, true), bot, false);
+        if (inBand.length >= 3) areas[r] += polygonArea(inBand);
       }
     }
   }
 
   return {
-    linesToClear: areas.reduce((acc: number[], a, i) => a > THRESHOLD ? [...acc, i] : acc, []),
+    linesToClear: areas.reduce(
+      (acc: number[], a, i) => (a > THRESHOLD ? [...acc, i] : acc),
+      [],
+    ),
     lineAreas: areas,
   };
 }
 
 /**
- * 클리어된 행에 걸친 body를 절단하고 위쪽만 유지
- * 바닥부터 위로 처리 (행 번호 내림차순)
+ * 원본 gameA.lua removeline 로직
+ * 각 Part를 개별 처리: 위/아래 조각 모두 생성
  */
-export function removeLinesFromBodies(bodies: Body[], rows: number[], cellSize: number): Body[] {
+export function removeLinesFromBodies(
+  bodies: Body[],
+  rows: number[],
+  cellSize: number,
+): Body[] {
   let result = [...bodies];
+
+  // 바닥부터 위로 (행 인덱스 내림차순)
   for (const row of [...rows].sort((a, b) => b - a)) {
     const lineTop = row * cellSize;
-    result = result.flatMap(body => {
-      if (!body.isStatic || body.kind === 0) return [body];
-      const verts = body.parts.flatMap(p => getWorldVerts(p, body.position, body.angle));
-      // 이 body가 클리어 라인과 겹치지 않으면 그대로 유지
-      if (Math.max(...verts.map(v => v.y)) <= lineTop ||
-          Math.min(...verts.map(v => v.y)) >= lineTop + cellSize) {
-        return [body];
+    const lineBot = lineTop + cellSize;
+    const nextResult: Body[] = [];
+
+    for (const body of result) {
+      // 비정적 body 또는 벽/바닥(kind=0)은 그대로 유지
+      if (!body.isStatic || body.kind === 0) {
+        nextResult.push(body);
+        continue;
       }
-      // 위쪽 조각만 유지
-      const above = clip(verts, lineTop, true);
-      if (above.length < 3) return [];
-      const cx = above.reduce((s, v) => s + v.x, 0) / above.length;
-      const rawCy = above.reduce((s, v) => s + v.y, 0) / above.length;
-      // 클리어 라인보다 2px 위 보장 (SAT impulse로 날아가는 것 방지)
-      const cy = Math.min(rawCy, lineTop - 2);
-      return [{
-        ...body,
-        position: { x: cx, y: cy },
-        parts: [{ localVerts: above.map(v => ({ x: v.x - cx, y: v.y - cy })) }],
-        isStatic: false,
-        velocity: { x: 0, y: 1 }, // 아래 방향 초기 속도 (위로 날아가기 방지)
-        angularVelocity: 0,
-      }];
-    });
+
+      // 이 body가 클리어 밴드와 겹치는지 빠른 체크
+      const allV = body.parts.flatMap(p => getWorldVerts(p, body.position, body.angle));
+      const bodyMinY = Math.min(...allV.map(v => v.y));
+      const bodyMaxY = Math.max(...allV.map(v => v.y));
+      if (bodyMaxY <= lineTop || bodyMinY >= lineBot) {
+        nextResult.push(body);
+        continue;
+      }
+
+      // 각 Part를 개별로 처리 (원본과 동일)
+      const surviveParts: Part[] = [];    // 클리어 밴드 아래 무관 Part
+      const aboveFrags: Vec2[][] = [];    // 밴드 위 → 재낙하
+      const belowFrags: Vec2[][] = [];    // 밴드 아래 절단 조각
+
+      for (const part of body.parts) {
+        const wv = getWorldVerts(part, body.position, body.angle);
+        const pMinY = Math.min(...wv.map(v => v.y));
+        const pMaxY = Math.max(...wv.map(v => v.y));
+
+        if (pMaxY <= lineTop) {
+          // 완전히 클리어 밴드 위 → 재낙하
+          aboveFrags.push(wv);
+        } else if (pMinY >= lineBot) {
+          // 완전히 클리어 밴드 아래 → 정적 유지
+          surviveParts.push(part);
+        } else if (pMinY >= lineTop && pMaxY <= lineBot) {
+          // 완전히 밴드 안 → 삭제
+        } else {
+          // 밴드에 걸침 → 위/아래로 절단
+          const above = clipLine(wv, lineTop, false); // y <= lineTop
+          if (above.length >= 3) aboveFrags.push(above);
+
+          const below = clipLine(wv, lineBot, true);  // y >= lineBot
+          if (below.length >= 3) belowFrags.push(below);
+        }
+      }
+
+      // 1. 밴드 아래 정적 Part + 절단 아래 조각 → 기존 body에 통합
+      const belowParts: Part[] = [...surviveParts];
+      for (const verts of belowFrags) {
+        const cx = verts.reduce((s, v) => s + v.x, 0) / verts.length;
+        const cy = verts.reduce((s, v) => s + v.y, 0) / verts.length;
+        belowParts.push({
+          localVerts: verts.map(v => ({ x: v.x - cx, y: v.y - cy })),
+        });
+      }
+      if (belowParts.length > 0) {
+        nextResult.push({ ...body, parts: belowParts });
+      }
+
+      // 2. 밴드 위 조각 → 개별 동적 body로 재생성 (재낙하)
+      for (const verts of aboveFrags) {
+        if (verts.length < 3) continue;
+        const cx = verts.reduce((s, v) => s + v.x, 0) / verts.length;
+        const cy = verts.reduce((s, v) => s + v.y, 0) / verts.length;
+        nextResult.push({
+          ...body,
+          id: ++_fragId,
+          position: { x: cx, y: cy },
+          parts: [{ localVerts: verts.map(v => ({ x: v.x - cx, y: v.y - cy })) }],
+          isStatic: false,
+          angle: 0,
+          velocity: { x: 0, y: 0.5 },
+          angularVelocity: 0,
+        });
+      }
+    }
+
+    result = nextResult;
   }
+
   return result;
 }

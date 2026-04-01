@@ -35,7 +35,7 @@ export interface Keys {
 const SPAWN_X = BOARD_WIDTH / 2;
 const SPAWN_Y = CELL_SIZE * 1.5;
 const LOCK_DELAY = 0.5;
-const CLEAR_COOLDOWN = 1.2;
+const CLEAR_COOLDOWN = 0.5;
 
 export function initTetrisState(): TetrisState {
   const firstKind = Math.ceil(Math.random() * 7);
@@ -129,7 +129,6 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
       // 라인 클리어 체크
       const { linesToClear, lineAreas } = checkLineDensity(bodies, BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE);
       if (linesToClear.length > 0) {
-        console.log('[LineClear] rows:', linesToClear, 'areas:', linesToClear.map(r => lineAreas[r]?.toFixed(0)));
         bodies = removeLinesFromBodies(bodies, linesToClear, CELL_SIZE);
         const sum = linesToClear.reduce((s, r) => s + (lineAreas[r] ?? 0), 0);
         const avg = Math.min(1, sum / linesToClear.length / 10240);
