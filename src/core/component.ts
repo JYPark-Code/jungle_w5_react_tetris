@@ -27,6 +27,8 @@ type FunctionComponent<P = Record<string, any>> = (props: P) => VNode;
  * 1. new Component(fn, props) → 컴포넌트 인스턴스 생성
  * 2. mount(container)         → 최초 렌더링 (DOM에 붙이기)
  * 3. update()                 → 상태 변경 시 재렌더링 (diff → patch)
+ * 4. setProps(newProps)       → 부모로부터 새 props 전달 → 재렌더링
+ * 5. unmount()                → cleanup 실행 + DOM 제거
  *
  * hooks 연동:
  * - update() 시 current.instance = this 를 설정해서
@@ -113,5 +115,48 @@ export class Component<P = Record<string, any>> implements FunctionComponentClas
     this.metrics.renderCount += 1;
     this.metrics.lastDuration = duration;
     this.metrics.timestamp = performance.now();
+  }
+
+  /**
+   * 부모 컴포넌트에서 새 props를 전달할 때 호출합니다.
+   *
+   * 예) 테트리스에서 state가 바뀌면:
+   *     boardComponent.setProps({ board: newBoard })
+   *     → 자동으로 update() 호출 → diff → patch → DOM 반영
+   */
+  setProps(newProps: P): void {
+    this.props = newProps;
+    this.update();
+  }
+
+  /**
+   * 컴포넌트를 DOM에서 제거하고 정리합니다.
+   *
+   * 하는 일:
+   * 1. 모든 useEffect의 cleanup 함수 실행
+   *    (예: keydown 이벤트 해제, requestAnimationFrame 취소)
+   * 2. DOM에서 컨테이너 내용물 제거
+   * 3. 내부 상태 초기화
+   *
+   * 이걸 안 하면:
+   * - 게임 탭 벗어나도 키보드 이벤트가 계속 살아있음
+   * - requestAnimationFrame 루프가 계속 돌아감
+   */
+  unmount(): void {
+    // useEffect cleanup 일괄 실행
+    for (const hook of this.hooks) {
+      if (hook.value && typeof hook.value === "function") {
+        (hook.value as () => void)();
+      }
+    }
+
+    // DOM에서 제거
+    if (this.container) {
+      this.container.innerHTML = "";
+    }
+
+    // 상태 초기화
+    this.hooks = [];
+    this.prevVNode = null;
   }
 }

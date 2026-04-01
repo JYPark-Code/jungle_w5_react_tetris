@@ -114,14 +114,28 @@ function diffProps(
  * 이전 children과 새 children을 비교해서 변경 여부를 반환합니다.
  * 변경이 있으면 true, 없으면 false.
  *
- * - 개수가 다르면 바로 true
- * - 같은 위치의 자식끼리 비교 (텍스트, VNode 각각)
- * - VNode 자식은 재귀적으로 diff 수행
+ * key가 있는 자식이 하나라도 있으면 key 기반 비교를 수행합니다.
+ * key가 없으면 기존 인덱스 기반 비교를 사용합니다.
+ *
+ * [Key 기반 비교가 필요한 이유]
+ * 테트리스에서 3번 행이 클리어되면:
+ * - 인덱스 기반: 행 3~19 전부 "바뀜" → DOM 17개 재생성 (느림)
+ * - Key 기반:   행 3만 "삭제" → DOM 1개 제거 (빠름)
  */
 function diffChildren(
   oldChildren: (VNode | string)[],
   newChildren: (VNode | string)[]
 ): boolean {
+  // key가 있는 자식이 하나라도 있으면 key 기반 비교
+  const hasKeys = newChildren.some(
+    (c) => typeof c === "object" && c.key !== undefined
+  );
+
+  if (hasKeys) {
+    return diffChildrenByKey(oldChildren, newChildren);
+  }
+
+  // key 없으면 기존 인덱스 기반 비교
   if (oldChildren.length !== newChildren.length) return true;
 
   for (let i = 0; i < oldChildren.length; i++) {
@@ -139,6 +153,72 @@ function diffChildren(
       const { patches } = diff(oldChild, newChild as VNode);
       if (patches.length > 0) return true;
     }
+  }
+
+  return false;
+}
+
+/**
+ * Key 기반 자식 비교
+ *
+ * 1. old children을 key → VNode 맵으로 변환
+ * 2. new children을 순회하며 같은 key의 old VNode와 비교
+ * 3. old에만 있는 key → 삭제됨
+ * 4. new에만 있는 key → 추가됨
+ * 5. 양쪽 모두 있는 key → 내용 비교
+ *
+ * React의 reconcileChildrenArray와 유사한 로직입니다.
+ */
+function diffChildrenByKey(
+  oldChildren: (VNode | string)[],
+  newChildren: (VNode | string)[]
+): boolean {
+  // old children을 key → VNode 맵으로 변환
+  const oldKeyMap = new Map<string | number, VNode>();
+  for (const child of oldChildren) {
+    if (typeof child === "object" && child.key !== undefined) {
+      oldKeyMap.set(child.key, child);
+    }
+  }
+
+  // new children을 key → VNode 맵으로 변환
+  const newKeyMap = new Map<string | number, VNode>();
+  for (const child of newChildren) {
+    if (typeof child === "object" && child.key !== undefined) {
+      newKeyMap.set(child.key, child);
+    }
+  }
+
+  // old에만 있는 key → 삭제된 노드가 있음
+  for (const key of oldKeyMap.keys()) {
+    if (!newKeyMap.has(key)) return true;
+  }
+
+  // new에만 있는 key → 추가된 노드가 있음
+  for (const key of newKeyMap.keys()) {
+    if (!oldKeyMap.has(key)) return true;
+  }
+
+  // 양쪽 모두 있는 key → 내용이 바뀌었는지 비교
+  for (const [key, newChild] of newKeyMap.entries()) {
+    const oldChild = oldKeyMap.get(key);
+    if (oldChild) {
+      const { patches } = diff(oldChild, newChild);
+      if (patches.length > 0) return true;
+    }
+  }
+
+  // 순서가 바뀌었는지 확인
+  const oldKeys = oldChildren
+    .filter((c): c is VNode => typeof c === "object" && c.key !== undefined)
+    .map((c) => c.key);
+  const newKeys = newChildren
+    .filter((c): c is VNode => typeof c === "object" && c.key !== undefined)
+    .map((c) => c.key);
+
+  if (oldKeys.length !== newKeys.length) return true;
+  for (let i = 0; i < oldKeys.length; i++) {
+    if (oldKeys[i] !== newKeys[i]) return true;
   }
 
   return false;
