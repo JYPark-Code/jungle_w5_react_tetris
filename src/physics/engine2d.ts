@@ -285,9 +285,10 @@ export function isLanded(
     const sMaxX = Math.max(...sVertices.map((v) => v.x));
     const sMinX = Math.min(...sVertices.map((v) => v.x));
 
-    // X 범위가 겹치고 Y가 맞닿아있는 경우
-    const xOverlap = aMinX < sMaxX && aMaxX > sMinX;
-    const yTouch = Math.abs(maxY - sMinY) < 3;
+    // X 범위가 의미있게 겹치고 Y가 맞닿아있는 경우 (최소 2px 겹침)
+    const overlapWidth = Math.min(aMaxX, sMaxX) - Math.max(aMinX, sMinX);
+    const xOverlap = overlapWidth > 2;
+    const yTouch = Math.abs(maxY - sMinY) < 6;  // 6px — CELL_SIZE 28px의 ~21%
 
     if (xOverlap && yTouch) return true;
   }

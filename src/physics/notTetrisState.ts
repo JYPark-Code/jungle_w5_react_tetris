@@ -137,10 +137,15 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
   const staticBodies = state.bodies.filter((b) => b.isStatic);
   const dynamicBodies = state.bodies.filter((b) => !b.isStatic);
 
+  // 파편 순차 처리 — 처리된 파편을 누적하여 다음 파편의 지지대로 사용
   const processedDynamic: RigidBody[] = [];
   for (const dyn of dynamicBodies) {
+    // 지금까지 처리된 파편 + 기존 static bodies를 지지대로 사용
+    const currentStatics = [...staticBodies, ...processedDynamic.filter((p) => p.isStatic)];
+
     let d = { ...dyn, position: { ...dyn.position, y: dyn.position.y + dropSpeed * safeDt } };
-    if (checkIsLanded(d, staticBodies, BOARD_HEIGHT)) {
+
+    if (checkIsLanded(d, currentStatics, BOARD_HEIGHT)) {
       processedDynamic.push({ ...d, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 });
     } else {
       const dWall = checkWallCollision(d, BOARD_WIDTH, BOARD_HEIGHT);
