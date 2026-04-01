@@ -183,6 +183,42 @@ export type SoftDropFn = (state: PhysicsState) => PhysicsState;
 export type HoldPieceFn = (state: PhysicsState) => PhysicsState;
 
 // ------------------------------------------------------------
+// [지용님 담당] Not Tetris 2 — 2D 강체 물리
+// ------------------------------------------------------------
+
+/** 2D 벡터 */
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+/** 강체 블록 (Not Tetris 2 방식) */
+export interface RigidBody {
+  position: Vec2;           // 블록 중심 (픽셀 좌표)
+  velocity: Vec2;           // 선속도 (픽셀/초)
+  angle: number;            // 회전각 (라디안)
+  angularVelocity: number;  // 각속도 (라디안/초)
+  localVertices: Vec2[];    // 중심 기준 꼭짓점 (회전 전)
+  color: string;
+  isStatic: boolean;        // 착지 후 true
+}
+
+/** Not Tetris 2 게임 상태 */
+export interface NotTetrisState {
+  bodies: RigidBody[];          // 고정된 모든 강체
+  activeBody: RigidBody | null; // 현재 떨어지는 블록
+  heldBody: RigidBody | null;   // 보관 블록
+  nextBody: RigidBody;          // 다음 블록
+  canHold: boolean;
+  score: number;
+  level: number;
+  linesCleared: number;
+  isGameOver: boolean;
+  boardWidth: number;
+  boardHeight: number;
+}
+
+// ------------------------------------------------------------
 // [지용님 담당] Flamegraph 메트릭
 // ------------------------------------------------------------
 
