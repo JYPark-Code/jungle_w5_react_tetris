@@ -1,0 +1,1052 @@
+/* ============================================================
+   Physics Tetris — 전체 레이아웃
+   bugfix-and-ui-prompt.md Step 2 기준
+   ============================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0d0d0d;
+  color: #ffffff;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   네비게이션 탭 바 — 48px 높이
+   ============================================================ */
+
+.nav-tabs {
+  display: flex;
+  gap: 2px;
+  height: 48px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+  padding: 0 16px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.nav-tab {
+  padding: 0 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 16px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.nav-tab:hover {
+  color: #aaa;
+}
+
+.nav-tab.active {
+  color: #ffffff;
+  border-bottom-color: #4ecdc4;
+}
+
+/* ============================================================
+   탭 콘텐츠 — 나머지 높이 전부
+   ============================================================ */
+
+.tab-content {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============================================================
+   Tab 1 — Play 레이아웃
+   ============================================================ */
+
+.play-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  height: calc(100vh - 48px);
+  gap: 24px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  animation: fadeIn 0.2s ease;
+}
+
+.board-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.board-canvas {
+  border: 2px solid #333;
+  border-radius: 4px;
+  display: block;
+  /* 캔버스를 화면 높이에 맞게 확대 — 비율 유지 */
+  height: calc(100vh - 88px);
+  width: auto;
+}
+
+/* 사이드 패널 — 240px 너비 */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 240px;
+}
+
+.panel-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.panel-box h3 {
+  color: #666;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+
+.preview-canvas {
+  background: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 4px;
+  display: block;
+}
+
+/* 점수 표시 — 큰 폰트 */
+.score-display {
+  font-size: 14px;
+  line-height: 2.2;
+  color: #888;
+}
+
+.score-display .value {
+  color: #00ff88;
+  font-weight: bold;
+  font-size: 36px;
+  display: block;
+  line-height: 1.2;
+}
+
+.score-display .value.small {
+  font-size: 24px;
+}
+
+/* 게임 버튼 */
+.game-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-btn {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #4ecdc4;
+  border-radius: 6px;
+  background: transparent;
+  color: #4ecdc4;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.game-btn:hover {
+  background: #4ecdc4;
+  color: #0d0d0d;
+}
+
+.game-btn.pause {
+  border-color: #ffe66d;
+  color: #ffe66d;
+}
+
+.game-btn.pause:hover {
+  background: #ffe66d;
+  color: #0d0d0d;
+}
+
+/* 조작 안내 — 14px */
+.controls-help {
+  font-size: 14px;
+  color: #666;
+  line-height: 2;
+}
+
+.controls-help kbd {
+  background: #222;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid #444;
+  color: #aaa;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 24px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* ============================================================
+   Tab 2, 3, 4 — 정보 탭
+   ============================================================ */
+
+/* 패널 공통 — 전체 너비 활용, 흰색 텍스트 */
+.panel-content {
+  width: 100%;
+  max-width: 100%;
+  padding: 32px 48px;
+  box-sizing: border-box;
+  color: #ffffff;
+}
+
+.info-section {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 28px 32px;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.info-section h2 {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.info-section h3 {
+  color: #ffe66d;
+  font-size: 16px;
+  margin: 16px 0 8px;
+}
+
+.info-section p {
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.comparison-col {
+  background: #0d0d0d;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.comparison-col h4 {
+  color: #4ecdc4;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.comparison-col p {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #ffffff;
+}
+
+.tree-view {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #ffffff;
+  white-space: pre;
+  font-family: inherit;
+  background: #0d0d0d;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.tree-view .component { color: #4ecdc4; }
+.tree-view .props { color: #ffe66d; }
+
+/* 문제 카드 */
+.problem-card {
+  background: #0d0d0d;
+  border-left: 3px solid #f44;
+  border-radius: 0 6px 6px 0;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+
+.problem-card .title {
+  color: #f44;
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.problem-card .cause {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.problem-card .solution {
+  color: #00ff88;
+  font-size: 15px;
+}
+
+/* 대응표 */
+.mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.mapping-table th {
+  background: #0d0d0d;
+  color: #4ecdc4;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.mapping-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #1a1a1a;
+  color: #ffffff;
+}
+
+.mapping-table a {
+  color: #4ecdc4;
+  text-decoration: none;
+}
+
+.mapping-table a:hover {
+  text-decoration: underline;
+}
+
+.observation {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+/* Flamegraph 탭 */
+.flamegraph-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 48px;
+  box-sizing: border-box;
+}
+
+.flamegraph-canvas-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.observation {
+  text-align: left;
+  font-size: 14px;
+  line-height: 2;
+  color: #aaa;
+}
+
+.observation strong {
+  color: #4ecdc4;
+}
+
+/* 탭 콘텐츠 내부 wrapper */
+.tab-inner {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* 바 차트 섹션 중앙 정렬 */
+.bar-chart-section {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   Tab 2 — Why 패널 (Apple Watch 스타일 스크롤)
+   ============================================================ */
+
+/* Why 탭이 활성화될 때 scroll-snap 적용 */
+#tab-why.active {
+  scroll-snap-type: y mandatory;
+  padding: 0;
+}
+
+.why-container {
+  width: 100%;
+}
+
+/* 각 섹션: 뷰포트 높이, snap 정렬 */
+.why-section {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  padding: 48px 64px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+/* 인트로 — 세로 중앙 */
+.why-intro {
+  flex-direction: column;
+  gap: 48px;
+  text-align: center;
+}
+
+.why-intro-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.why-title {
+  font-size: 64px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.why-subtitle {
+  font-size: 32px;
+  color: #ccc;
+  line-height: 1.8;
+}
+
+.why-scroll-hint {
+  font-size: 24px;
+  color: #555;
+  margin-top: 32px;
+  animation: whyBounce 2s ease infinite;
+}
+
+@keyframes whyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* 2컬럼 레이아웃 */
+.why-two-col {
+  gap: 64px;
+}
+
+.why-two-col-reverse {
+  flex-direction: row-reverse;
+}
+
+.why-col-visual {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.why-col-text {
+  max-width: 640px;
+}
+
+/* 캔버스 공통 */
+.why-canvas {
+  background: #0d0d1a;
+  border: 1px solid #222;
+  border-radius: 8px;
+  display: block;
+}
+
+/* Hook 이름 */
+.why-hook-name {
+  font-size: 48px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Hook 설명 */
+.why-hook-desc {
+  font-size: 30px;
+  color: #fff;
+  line-height: 1.8;
+}
+
+.why-hook-detail {
+  font-size: 26px;
+  color: #ccc;
+  line-height: 1.8;
+}
+
+.why-hook-detail em {
+  color: #fff;
+  font-style: normal;
+}
+
+/* 구분선 */
+.why-divider {
+  height: 1px;
+  background: #333;
+  margin: 28px 0;
+}
+
+/* 비교 블록 (useState) */
+.why-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.why-compare-bad,
+.why-compare-good {
+  background: #0d0d0d;
+  border-radius: 8px;
+  padding: 24px;
+  font-size: 24px;
+  line-height: 1.8;
+  color: #aaa;
+}
+
+.why-compare-bad {
+  border-left: 3px solid #f44;
+}
+
+.why-compare-good {
+  border-left: 3px solid #00ff88;
+}
+
+.why-compare-bad code,
+.why-compare-good code {
+  color: #ffe66d;
+  font-family: inherit;
+}
+
+/* 버튼 그룹 */
+.why-btn-group {
+  display: flex;
+  gap: 16px;
+}
+
+.why-btn {
+  padding: 16px 32px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 22px;
+  transition: all 0.2s;
+}
+
+.why-btn:hover {
+  background: #222;
+}
+
+.why-btn-start {
+  border-color: #00ff88;
+  color: #00ff88;
+}
+
+.why-btn-start:hover {
+  background: #00ff88;
+  color: #0d0d0d;
+}
+
+.why-btn-stop {
+  border-color: #f44;
+  color: #f44;
+}
+
+.why-btn-stop:hover {
+  background: #f44;
+  color: #fff;
+}
+
+/* 섹션 4: Component 분리 */
+.why-component {
+  flex-direction: column;
+  gap: 48px;
+}
+
+.why-component-header {
+  text-align: center;
+}
+
+.why-component-body {
+  display: flex;
+  gap: 80px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 컴포넌트 트리 */
+.why-tree {
+  font-size: 28px;
+  line-height: 2.4;
+}
+
+.why-tree-node {
+  color: #fff;
+  font-family: 'Consolas', 'Monaco', monospace;
+  padding: 4px 12px;
+  border-radius: 4px;
+  transition: color 0.15s, text-shadow 0.15s;
+}
+
+.why-tree-root {
+  color: #4ecdc4;
+  font-weight: bold;
+}
+
+.why-tree-badge {
+  font-size: 22px;
+  margin-left: 12px;
+}
+
+.why-badge-red {
+  color: #f44;
+}
+
+.why-badge-gray {
+  color: #666;
+}
+
+.why-tree-note {
+  margin-top: 24px;
+  font-size: 26px;
+  color: #888;
+  line-height: 1.8;
+  font-family: inherit;
+}
+
+/* ============================================================
+   Tab 4 — 학습 패널 (Apple Watch 스타일 스크롤)
+   ============================================================ */
+
+/* 학습 탭 scroll-snap */
+#tab-lifecycle.active {
+  scroll-snap-type: y mandatory;
+  padding: 0;
+}
+
+.learn-container {
+  width: 100%;
+}
+
+/* 섹션 공통 */
+.learn-section {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  padding: 48px 80px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #1a1a2e;
+  color: #ffffff;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.learn-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 인트로 */
+.learn-intro {
+  flex-direction: column;
+  gap: 48px;
+  text-align: center;
+}
+
+.learn-title {
+  font-size: 64px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.learn-subtitle {
+  font-size: 32px;
+  color: #fff;
+  line-height: 1.8;
+}
+
+.learn-scroll-hint {
+  font-size: 24px;
+  color: #555;
+  margin-top: 32px;
+  animation: whyBounce 2s ease infinite;
+}
+
+/* 2컬럼 */
+.learn-two-col {
+  gap: 64px;
+}
+
+.learn-two-col-reverse {
+  flex-direction: row-reverse;
+}
+
+.learn-col-text {
+  max-width: 640px;
+}
+
+.learn-col-visual {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.learn-col-code {
+  flex-shrink: 0;
+}
+
+/* 섹션 1: Hook 배치 */
+.learn-heading {
+  font-size: 48px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 36px;
+}
+
+.learn-hook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.learn-hook-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.learn-hook-label {
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.learn-hook-desc {
+  font-size: 24px;
+  color: #ccc;
+  padding-left: 4px;
+}
+
+.learn-code {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 36px 40px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 22px;
+  line-height: 1.8;
+  color: #fff;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* 문제 섹션 공통 */
+.learn-problem-badge {
+  display: inline-block;
+  background: #f44;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  padding: 8px 20px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+
+.learn-problem-title {
+  font-size: 40px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.learn-problem-divider {
+  height: 1px;
+  background: #333;
+  margin: 28px 0;
+}
+
+.learn-problem-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.learn-problem-cause {
+  background: #0d0d0d;
+  border-left: 4px solid #f44;
+  border-radius: 0 8px 8px 0;
+  padding: 24px;
+  font-size: 24px;
+  line-height: 1.8;
+  color: #fff;
+}
+
+.learn-problem-cause strong {
+  color: #f44;
+}
+
+.learn-problem-solution {
+  background: #0d0d0d;
+  border-left: 4px solid #00ff88;
+  border-radius: 0 8px 8px 0;
+  padding: 24px;
+  font-size: 24px;
+  line-height: 1.8;
+  color: #fff;
+}
+
+.learn-problem-solution strong {
+  color: #00ff88;
+}
+
+/* Batching / useMemo 카운터 데모 */
+.learn-counter-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 400px;
+}
+
+.learn-counter-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 32px 36px;
+  text-align: center;
+}
+
+.learn-counter-label {
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.learn-counter-detail {
+  font-size: 22px;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+.learn-counter-num {
+  font-size: 56px;
+  font-weight: bold;
+}
+
+/* Cleanup 데모 */
+.learn-cleanup-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 400px;
+}
+
+.learn-cleanup-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 32px 36px;
+}
+
+.learn-cleanup-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.learn-cleanup-loops {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.learn-loop-bar {
+  display: block;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 22px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.learn-cleanup-result {
+  font-size: 24px;
+  color: #ccc;
+}
+
+/* Hooks 순서 데모 */
+.learn-hooks-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 400px;
+}
+
+.learn-hooks-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 32px 36px;
+}
+
+.learn-hooks-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.learn-hooks-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.learn-hook-slot {
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 14px 20px;
+  font-size: 24px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #fff;
+}
+
+.learn-hooks-result {
+  font-size: 24px;
+  color: #00ff88;
+}
+
+/* Fiber 스케줄러 데모 */
+.learn-fiber-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 400px;
+}
+
+.learn-fiber-box {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 32px 36px;
+}
+
+.learn-fiber-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.learn-fiber-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.learn-fiber-item {
+  padding: 14px 20px;
+  border-radius: 6px;
+  font-size: 24px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.learn-fiber-note {
+  font-size: 24px;
+  color: #888;
+}
+
+/* 섹션 7: React 비교 테이블 */
+.learn-comparison {
+  flex-direction: column;
+  gap: 48px;
+}
+
+.learn-comparison-title {
+  font-size: 48px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.learn-table {
+  width: 100%;
+  max-width: 1100px;
+  border-collapse: collapse;
+  font-size: 24px;
+}
+
+.learn-table th {
+  background: #1a1a2e;
+  color: #4ecdc4;
+  padding: 20px 28px;
+  text-align: left;
+  border-bottom: 2px solid #333;
+  font-weight: bold;
+}
+
+.learn-table td {
+  padding: 20px 28px;
+  border-bottom: 1px solid #222;
+  color: #fff;
+}
+
+.learn-table a {
+  color: #4ecdc4;
+  text-decoration: none;
+  font-size: 22px;
+}
+
+.learn-table a:hover {
+  text-decoration: underline;
+}

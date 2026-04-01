@@ -125,9 +125,12 @@ export interface Tetromino {
 export type Board = (string | null)[][];
 
 export interface PhysicsState {
-  board: Board;
+  board: Board;              // lockedPieces에서 매 프레임 재계산 (렌더링/충돌용)
+  lockedPieces: Tetromino[]; // 고정된 블록 목록 (물리 개체로 유지)
   currentPiece: Tetromino | null;
   nextPiece: Tetromino | null;
+  heldPiece: Tetromino | null;   // R키로 보관한 블록
+  canHold: boolean;               // 착지 전 재사용 방지
   score: number;
   level: number;
   isGameOver: boolean;
@@ -150,6 +153,74 @@ export type CutPieceAtLineFn = (
 export type ClearLinesFn = (
   board: Board
 ) => { board: Board; linesCleared: number };
+
+/** 회전 방향 */
+export type RotateDirection = 'cw' | 'ccw';
+
+/**
+ * 물리 기반 회전: angularVelocity 충격량을 가해 부드럽게 회전
+ * - Q키: 반시계방향(ccw), E키: 시계방향(cw)
+ * - 마찰에 의해 점차 감속하는 자연스러운 회전
+ */
+export type RotatePieceFn = (piece: Tetromino, direction: RotateDirection) => Tetromino;
+
+/**
+ * 90도 즉시 회전 (↑키)
+ * - 전통 테트리스 스타일의 즉시 90도 회전
+ * - 충돌 시 회전 무시
+ */
+export type SnapRotateFn = (piece: Tetromino, board: Board) => Tetromino;
+
+/** 소프트 드롭: vy를 즉시 높여 빠르게 낙하 (↓키) */
+export type SoftDropFn = (state: PhysicsState) => PhysicsState;
+
+/**
+ * 현재 블록을 보관함에 저장 (R키)
+ * - heldPiece 없으면: currentPiece → held, nextPiece → current
+ * - heldPiece 있으면: currentPiece ↔ heldPiece 교체
+ * - 착지 전 연속 사용 불가 (canHold = false)
+ * - 새 블록 착지 시 canHold = true 로 초기화
+ */
+export type HoldPieceFn = (state: PhysicsState) => PhysicsState;
+
+// ------------------------------------------------------------
+// [지용님 담당] Not Tetris 2 — 2D 강체 물리
+// ------------------------------------------------------------
+
+/** 2D 벡터 */
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+/** 강체 블록 (Not Tetris 2 방식) */
+export interface RigidBody {
+  position: Vec2;           // 블록 중심 (픽셀 좌표)
+  velocity: Vec2;           // 선속도 (픽셀/초)
+  angle: number;            // 회전각 (라디안)
+  angularVelocity: number;  // 각속도 (라디안/초)
+  localVertices: Vec2[];    // 중심 기준 꼭짓점 (회전 전)
+  color: string;
+  isStatic: boolean;        // 착지 후 true
+}
+
+/** Not Tetris 2 게임 상태 */
+export interface NotTetrisState {
+  bodies: RigidBody[];          // 고정된 모든 강체
+  activeBody: RigidBody | null; // 현재 떨어지는 블록
+  heldBody: RigidBody | null;   // 보관 블록
+  nextBody: RigidBody;          // 다음 블록
+  canHold: boolean;
+  score: number;
+  level: number;
+  linesCleared: number;
+  isGameOver: boolean;
+  boardWidth: number;
+  boardHeight: number;
+  lockTimer: number;            // 착지 후 고정까지 남은 시간 (초)
+  lockResets: number;           // lock delay 리셋 횟수
+  graceTimer: number;           // 새 블록 생성 후 게임오버 유예 시간 (초)
+}
 
 // ------------------------------------------------------------
 // [지용님 담당] Flamegraph 메트릭
