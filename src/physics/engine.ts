@@ -115,12 +115,13 @@ export const applyGravity: ApplyGravityFn = (
   piece: Tetromino,
   board: Board
 ): Tetromino => {
-  const GRAVITY = 0.5;
+  const GRAVITY = 0.05;
+  const MAX_VY = 1.0;
   const FRICTION = 0.9;
   const ANGULAR_FRICTION = 0.85;
 
-  // 새 속도 계산
-  const newVy = piece.vy + GRAVITY;
+  // 새 속도 계산 (최대 낙하 속도 제한)
+  const newVy = Math.min(piece.vy + GRAVITY, MAX_VY);
   const newVx = piece.vx * FRICTION;
   const newAngularVelocity = piece.angularVelocity * ANGULAR_FRICTION;
 

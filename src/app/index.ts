@@ -30,6 +30,8 @@ let isRunning = false;
 let isPaused = false;
 let animFrameId: number | null = null;
 let renderIndex = 0;
+let lastTickTime = 0;
+const TICK_INTERVAL = 50; // 물리 업데이트 간격 (ms) — 초당 20회
 
 // ============================================================
 // 탭 라우팅
@@ -87,13 +89,16 @@ function switchTab(tabId: TabId): void {
  * 매 프레임 호출되는 게임 루프.
  * nextTick으로 물리 상태를 업데이트하고 Canvas에 렌더링한다.
  */
-function gameLoop(): void {
+function gameLoop(timestamp: number = 0): void {
   if (!isRunning || isPaused) return;
 
   const startTime = performance.now();
 
-  // 물리 상태 업데이트
-  gameState = nextTick(gameState);
+  // 물리 업데이트는 TICK_INTERVAL 간격으로만 실행 (속도 제어)
+  if (timestamp - lastTickTime >= TICK_INTERVAL) {
+    gameState = nextTick(gameState);
+    lastTickTime = timestamp;
+  }
 
   // Canvas 렌더링
   const boardCanvas = document.getElementById('board-canvas') as HTMLCanvasElement | null;
