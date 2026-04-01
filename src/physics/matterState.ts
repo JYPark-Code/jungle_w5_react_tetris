@@ -72,9 +72,9 @@ export function updateMatter(
     const vel = active.velocity;
     const pos = active.position;
 
-    // 회전 (원본: applyTorque ±70, 각속도 ±3 cap)
+    // 회전 (각속도 캡: ±0.15 rad/frame)
     if (keys.rotateRight) {
-      if (active.angularVelocity < 3) {
+      if (active.angularVelocity < 0.15) {
         Matter.Body.setAngularVelocity(
           active,
           active.angularVelocity + TORQUE_STRENGTH * 70,
@@ -82,7 +82,7 @@ export function updateMatter(
       }
     }
     if (keys.rotateLeft) {
-      if (active.angularVelocity > -3) {
+      if (active.angularVelocity > -0.15) {
         Matter.Body.setAngularVelocity(
           active,
           active.angularVelocity - TORQUE_STRENGTH * 70,
@@ -90,12 +90,25 @@ export function updateMatter(
       }
     }
 
-    // 좌우 이동 (원본: applyForce ±70)
+    // 좌우 이동 (속도 캡: ±3 px/frame)
+    const MAX_VX = 3;
     if (keys.left) {
-      Matter.Body.applyForce(active, pos, { x: -FORCE_STRENGTH * 70, y: 0 });
+      if (vel.x > -MAX_VX) {
+        Matter.Body.applyForce(active, pos, { x: -FORCE_STRENGTH * 70, y: 0 });
+      }
     }
     if (keys.right) {
-      Matter.Body.applyForce(active, pos, { x: FORCE_STRENGTH * 70, y: 0 });
+      if (vel.x < MAX_VX) {
+        Matter.Body.applyForce(active, pos, { x: FORCE_STRENGTH * 70, y: 0 });
+      }
+    }
+
+    // 키를 안 누를 때 수평 속도 감쇠
+    if (!keys.left && !keys.right) {
+      Matter.Body.setVelocity(active, {
+        x: vel.x * 0.85,
+        y: vel.y,
+      });
     }
 
     // 낙하 속도 제어 (원본 핵심 로직)

@@ -8,8 +8,8 @@ export const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;   // 320px
 export const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS;  // 576px
 export const DIFFICULTY_SPEED = 100; // 원본 difficulty_speed = 100 (px/s)
 export const LINEAR_DAMPING = 0.05;  // 원본 setLinearDamping(0.5) → Matter frictionAir
-export const TORQUE_STRENGTH = 0.002; // 회전력 (applyTorque 70 대응)
-export const FORCE_STRENGTH = 0.004; // 이동력 (applyForce 70 대응)
+export const TORQUE_STRENGTH = 0.0001; // 회전력 (원본 applyTorque 70 대응, Matter.js 단위 조정)
+export const FORCE_STRENGTH = 0.0002;  // 이동력 (원본 applyForce 70 대응, Matter.js 단위 조정)
 
 // 원본 테트로미노 정의 (gameA.lua createtetriA 기준)
 // 각 셀은 CELL_SIZE 크기의 사각형, body 중심 기준 상대 좌표
@@ -96,24 +96,24 @@ export function createPhysicsEngine(): Matter.Engine {
  * 원본: wallshapes[0~3] - left, right, ground, ceiling
  */
 export function createWalls(engine: Matter.Engine): void {
-  const thickness = 50;
-  const opts: Matter.IChamferableBodyDefinition = { isStatic: true, label: 'wall', friction: 0.00001 };
+  const thickness = 100;
+  const opts: Matter.IChamferableBodyDefinition = { isStatic: true, label: 'wall', friction: 0.00001, restitution: 0 };
 
   const walls = [
-    // 바닥
+    // 바닥 (보드보다 넓게)
     Matter.Bodies.rectangle(
       BOARD_WIDTH / 2, BOARD_HEIGHT + thickness / 2,
-      BOARD_WIDTH, thickness, { ...opts, label: 'ground' },
+      BOARD_WIDTH + thickness * 2, thickness, { ...opts, label: 'ground' },
     ),
     // 왼쪽 벽
     Matter.Bodies.rectangle(
       -thickness / 2, BOARD_HEIGHT / 2,
-      thickness, BOARD_HEIGHT * 2, { ...opts, label: 'left' },
+      thickness, BOARD_HEIGHT * 3, { ...opts, label: 'left' },
     ),
     // 오른쪽 벽
     Matter.Bodies.rectangle(
       BOARD_WIDTH + thickness / 2, BOARD_HEIGHT / 2,
-      thickness, BOARD_HEIGHT * 2, { ...opts, label: 'right' },
+      thickness, BOARD_HEIGHT * 3, { ...opts, label: 'right' },
     ),
   ];
 

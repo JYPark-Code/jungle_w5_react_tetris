@@ -47,28 +47,34 @@ function drawBody(
   isActive: boolean,
 ): void {
   const color: string = (body as any).color ?? '#ffffff';
-  const verts = body.vertices;
 
-  if (verts.length < 3) return;
+  // compound body: parts[0] = parent, parts[1..] = 실제 셀
+  const renderParts = body.parts.length > 1
+    ? body.parts.slice(1)
+    : [body];
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(verts[0].x, verts[0].y);
-  for (let i = 1; i < verts.length; i++) {
-    ctx.lineTo(verts[i].x, verts[i].y);
+  for (const part of renderParts) {
+    const verts = part.vertices;
+    if (verts.length < 3) continue;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(verts[0].x, verts[0].y);
+    for (let i = 1; i < verts.length; i++) {
+      ctx.lineTo(verts[i].x, verts[i].y);
+    }
+    ctx.closePath();
+
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.strokeStyle = isActive
+      ? 'rgba(255,255,255,0.5)'
+      : 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.closePath();
-
-  ctx.fillStyle = color;
-  ctx.fill();
-
-  // 활성 블록 테두리 강조
-  ctx.strokeStyle = isActive
-    ? 'rgba(255,255,255,0.5)'
-    : 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.restore();
 }
 
 /**

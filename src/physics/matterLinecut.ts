@@ -17,24 +17,24 @@ export function checkLineDensity(
   const lineAreas: number[] = new Array(numRows).fill(0);
 
   for (const body of bodies) {
-    if (body.isStatic) continue;  // 벽/바닥 제외
-    if (!(body as any).kind) continue; // 테트로미노만
+    if (body.isStatic) continue;
+    if (!(body as any).kind) continue;
 
-    // body의 모든 꼭짓점으로 각 행 커버리지 계산
-    const verts = body.vertices;
+    // compound body면 각 part의 vertices 사용, 아니면 body 자체
+    const parts = body.parts.length > 1 ? body.parts.slice(1) : [body];
 
-    for (let row = 0; row < numRows; row++) {
-      const lineTop = row * cellSize;
-      const lineBottom = lineTop + cellSize;
+    for (const part of parts) {
+      const verts = part.vertices;
 
-      // 이 body가 이 행에 겹치는 x 범위 계산
-      const xs = verts
-        .filter(v => v.y >= lineTop && v.y <= lineBottom)
-        .map(v => v.x);
+      for (let row = 0; row < numRows; row++) {
+        const lineTop = row * cellSize;
+        const lineBottom = lineTop + cellSize;
 
-      if (xs.length >= 2) {
-        const minX = Math.max(0, Math.min(...xs));
-        const maxX = Math.min(boardWidth, Math.max(...xs));
+        const inRow = verts.filter(v => v.y >= lineTop && v.y <= lineBottom);
+        if (inRow.length < 2) continue;
+
+        const minX = Math.max(0, Math.min(...inRow.map(v => v.x)));
+        const maxX = Math.min(boardWidth, Math.max(...inRow.map(v => v.x)));
         if (maxX > minX) {
           lineAreas[row] += (maxX - minX) * cellSize;
         }
@@ -42,12 +42,12 @@ export function checkLineDensity(
     }
   }
 
-  // threshold 초과 행 수집
-  const fullCellArea = cellSize * cellSize; // 1024 (32*32)
+  // 클리어 판정: 한 행의 너비 90% 이상 채워짐
+  const targetArea = boardWidth * cellSize * threshold;
   const linesToClear: number[] = [];
 
   for (let row = 0; row < numRows; row++) {
-    if (lineAreas[row] >= fullCellArea * (boardWidth / cellSize) * threshold) {
+    if (lineAreas[row] >= targetArea) {
       linesToClear.push(row);
     }
   }
