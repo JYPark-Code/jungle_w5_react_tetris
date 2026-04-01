@@ -38,12 +38,12 @@ export function renderFrame(
 
   // 고정된 블록 렌더링
   for (const body of bodies) {
-    drawBody(ctx, body);
+    drawBody(ctx, body, false);
   }
 
-  // 현재 떨어지는 블록 렌더링
+  // 현재 떨어지는 블록 렌더링 (테두리 강조)
   if (activeBody) {
-    drawBody(ctx, activeBody);
+    drawBody(ctx, activeBody, true);
   }
 }
 
@@ -51,33 +51,38 @@ export function renderFrame(
  * 하나의 강체를 Canvas에 그린다.
  * translate + rotate로 로컬 좌표계에서 렌더링.
  */
-function drawBody(ctx: CanvasRenderingContext2D, body: RigidBody): void {
+function drawBody(ctx: CanvasRenderingContext2D, body: RigidBody, isActive: boolean = false): void {
   const { position, angle, localVertices, color } = body;
 
   if (localVertices.length < 3) return;
 
   ctx.save();
-
-  // subpixel 아티팩트 방지: 정수 좌표로 이동
   ctx.translate(Math.round(position.x), Math.round(position.y));
   ctx.rotate(angle);
 
-  // 다각형 경로 — 정수화
+  // 각 꼭짓점을 중심에서 1.2배 확장 (시각적 틈 제거)
+  const EXPAND = 1.2;
+  const expandedVerts = localVertices.map((v) => ({
+    x: v.x * EXPAND,
+    y: v.y * EXPAND,
+  }));
+
   ctx.beginPath();
-  ctx.moveTo(Math.round(localVertices[0].x), Math.round(localVertices[0].y));
-  for (let i = 1; i < localVertices.length; i++) {
-    ctx.lineTo(Math.round(localVertices[i].x), Math.round(localVertices[i].y));
+  ctx.moveTo(Math.round(expandedVerts[0].x), Math.round(expandedVerts[0].y));
+  for (let i = 1; i < expandedVerts.length; i++) {
+    ctx.lineTo(Math.round(expandedVerts[i].x), Math.round(expandedVerts[i].y));
   }
   ctx.closePath();
 
-  // 1. 먼저 fill
   ctx.fillStyle = color;
   ctx.fill();
 
-  // 2. 테두리는 한 번만 (중복 stroke 제거)
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  // active 블록은 테두리 강조
+  if (isActive) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 
   ctx.restore();
 }

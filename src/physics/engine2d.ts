@@ -288,7 +288,7 @@ export function isLanded(
     // X 범위가 의미있게 겹치고 Y가 맞닿아있는 경우 (최소 2px 겹침)
     const overlapWidth = Math.min(aMaxX, sMaxX) - Math.max(aMinX, sMinX);
     const xOverlap = overlapWidth > 2;
-    const yTouch = Math.abs(maxY - sMinY) < 6;  // 6px — CELL_SIZE 28px의 ~21%
+    const yTouch = Math.abs(maxY - sMinY) < 14;  // 14px — CELL_SIZE 28px의 50%
 
     if (xOverlap && yTouch) return true;
   }

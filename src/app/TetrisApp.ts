@@ -123,22 +123,38 @@ export const TetrisAppFn = (props: {
     let moveInterval: ReturnType<typeof setInterval> | null = null;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
+      // 게임 관련 키만 preventDefault (탭 이동 등 방해 방지)
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+
       switch (e.key) {
         case 'ArrowLeft':
         case 'ArrowRight': {
           if (pressedKeys.has(e.key)) return;
           pressedKeys.add(e.key);
           const dir = e.key === 'ArrowLeft' ? 'left' as const : 'right' as const;
+
+          // 즉시 1회 이동
           setGameState((prev: NotTetrisState) => moveActive(prev, dir));
+
+          // 기존 interval 클리어 후 새로 시작
+          if (moveInterval) clearInterval(moveInterval);
+          moveInterval = null;
+
+          // 250ms 딜레이 후 연속 이동 (counter 기반, setTimeout 미사용)
+          let delayCounter = 0;
           const capturedKey = e.key;
-          setTimeout(() => {
+          moveInterval = setInterval(() => {
+            delayCounter++;
+            if (delayCounter < 5) return; // 처음 250ms 무시
             if (pressedKeys.has(capturedKey)) {
-              moveInterval = setInterval(() => {
-                setGameState((prev: NotTetrisState) => moveActive(prev, dir));
-              }, 50);
+              setGameState((prev: NotTetrisState) => moveActive(prev, dir));
+            } else {
+              clearInterval(moveInterval!);
+              moveInterval = null;
             }
-          }, 150);
+          }, 50);
           break;
         }
         case 'ArrowUp':
@@ -166,9 +182,10 @@ export const TetrisAppFn = (props: {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     return () => {
+      pressedKeys.clear(); // 핵심: setTimeout 클로저 방지
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('keyup', onKeyUp);
-      if (moveInterval) clearInterval(moveInterval);
+      if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
     };
   }, [isRunning, isPaused]);
 
