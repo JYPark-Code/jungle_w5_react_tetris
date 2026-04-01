@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { NotTetrisState, RigidBody } from '../../contracts';
-import { checkWallCollision, resolveCollision, checkBodyCollision, getWorldVertices } from './engine2d';
+import { checkWallCollision, resolveCollision, checkBodyCollision, getWorldVertices, isLanded as checkIsLanded, applyWallConstraints } from './engine2d';
 import { clearFullLines } from './linecut';
 import { createRandomBody, CELL_SIZE } from './tetrominos';
 
@@ -23,33 +23,7 @@ const MAX_LOCK_RESETS = 5;
 const GRACE_PERIOD = 0.5;
 const MOVE_AMOUNT = 8; // 이동량 (px)
 
-// ------------------------------------------------------------
-// 실제 접촉 판정 유틸리티
-// ------------------------------------------------------------
-
-/**
- * activeBody가 바닥 또는 static body 표면에 실제로 닿아있는지 확인한다.
- * "근처에 있음"이 아니라 "실제 접촉" 기준.
- */
-function isTouchingGround(body: RigidBody, staticBodies: RigidBody[], boardHeight: number): boolean {
-  const vertices = getWorldVertices(body);
-  const maxY = Math.max(...vertices.map((v) => v.y));
-
-  // 바닥 접촉 (2px 오차 허용)
-  if (maxY >= boardHeight - 2) return true;
-
-  // static body 위에 있는지 확인
-  for (const s of staticBodies) {
-    const sVertices = getWorldVertices(s);
-    const sMinY = Math.min(...sVertices.map((v) => v.y));
-    // active 바닥이 static 상단에 닿아있고 + SAT 충돌 중
-    if (Math.abs(maxY - sMinY) < 5 && checkBodyCollision(body, s).colliding) {
-      return true;
-    }
-  }
-
-  return false;
-}
+// checkIsLanded → engine2d의 isLanded로 대체
 
 // ------------------------------------------------------------
 // initNotTetrisState
@@ -166,7 +140,7 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
   const processedDynamic: RigidBody[] = [];
   for (const dyn of dynamicBodies) {
     let d = { ...dyn, position: { ...dyn.position, y: dyn.position.y + dropSpeed * safeDt } };
-    if (isTouchingGround(d, staticBodies, BOARD_HEIGHT)) {
+    if (checkIsLanded(d, staticBodies, BOARD_HEIGHT)) {
       processedDynamic.push({ ...d, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 });
     } else {
       const dWall = checkWallCollision(d, BOARD_WIDTH, BOARD_HEIGHT);
@@ -206,10 +180,10 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
   // 수평 속도 감쇠
   active = { ...active, velocity: { x: active.velocity.x * 0.9, y: 0 } };
 
-  // --- 실제 접촉 기반 착지 판정 ---
-  const touching = isTouchingGround(active, allStatic, BOARD_HEIGHT);
+  // --- 착지 판정: 거리 기반 (SAT와 분리) ---
+  const landed = checkIsLanded(active, allStatic, BOARD_HEIGHT);
 
-  if (touching) {
+  if (landed) {
     if (lockTimer === 0) {
       lockTimer = LOCK_DELAY;
     } else {
@@ -250,16 +224,8 @@ export function moveActive(
     position: { x: state.activeBody.position.x + dx, y: state.activeBody.position.y },
   };
 
-  // 꼭짓점 기반 벽 보정
-  const vertices = getWorldVertices(moved);
-  const maxX = Math.max(...vertices.map((v) => v.x));
-  const minX = Math.min(...vertices.map((v) => v.x));
-  if (maxX > BOARD_WIDTH) {
-    moved = { ...moved, position: { ...moved.position, x: moved.position.x - (maxX - BOARD_WIDTH) } };
-  }
-  if (minX < 0) {
-    moved = { ...moved, position: { ...moved.position, x: moved.position.x - minX } };
-  }
+  // 이동 후 즉시 벽 보정
+  moved = applyWallConstraints(moved, BOARD_WIDTH);
 
   // static body 충돌 체크
   for (const s of state.bodies) {
@@ -292,11 +258,7 @@ export function snapRotate(state: NotTetrisState): NotTetrisState {
   };
 
   // 벽 보정
-  const vertices = getWorldVertices(rotated);
-  const maxX = Math.max(...vertices.map((v) => v.x));
-  const minX = Math.min(...vertices.map((v) => v.x));
-  if (maxX > BOARD_WIDTH) rotated = { ...rotated, position: { ...rotated.position, x: rotated.position.x - (maxX - BOARD_WIDTH) } };
-  if (minX < 0) rotated = { ...rotated, position: { ...rotated.position, x: rotated.position.x - minX } };
+  rotated = applyWallConstraints(rotated, BOARD_WIDTH);
 
   for (const s of state.bodies) {
     if (s.isStatic && checkBodyCollision(rotated, s).colliding) return state;

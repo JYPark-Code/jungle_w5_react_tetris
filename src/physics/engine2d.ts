@@ -165,9 +165,9 @@ function projectPolygon(vertices: Vec2[], axis: Vec2): { min: number; max: numbe
   return { min, max };
 }
 
-/** 두 투영 구간이 겹치는지 확인 */
+/** 두 투영 구간이 실제로 겹치는지 확인 (딱 닿기만 한 경우는 충돌 아님) */
 function overlaps(a: { min: number; max: number }, b: { min: number; max: number }): boolean {
-  return a.max >= b.min && b.max >= a.min;
+  return a.max > b.min && b.max > a.min;
 }
 
 /** 겹침 깊이 (penetration depth) 계산 */
@@ -254,6 +254,65 @@ function getCentroid(vertices: Vec2[]): Vec2 {
     y += v.y;
   }
   return { x: x / vertices.length, y: y / vertices.length };
+}
+
+// ------------------------------------------------------------
+// isLanded: 거리 기반 착지 판정 (SAT와 분리)
+// ------------------------------------------------------------
+
+/**
+ * 블록 바닥면이 실제로 표면(바닥 or static body 상단)에 닿았는지 확인.
+ * SAT 충돌 감지와 별개의 거리 기반 판정.
+ */
+export function isLanded(
+  body: RigidBody,
+  staticBodies: RigidBody[],
+  boardHeight: number
+): boolean {
+  const vertices = getWorldVertices(body);
+  const maxY = Math.max(...vertices.map((v) => v.y));
+  const aMaxX = Math.max(...vertices.map((v) => v.x));
+  const aMinX = Math.min(...vertices.map((v) => v.x));
+
+  // 바닥 접촉 (2px 허용 오차)
+  if (maxY >= boardHeight - 2) return true;
+
+  // 다른 블록 상단과 접촉
+  for (const s of staticBodies) {
+    const sVertices = getWorldVertices(s);
+    const sMinY = Math.min(...sVertices.map((v) => v.y));
+    const sMaxX = Math.max(...sVertices.map((v) => v.x));
+    const sMinX = Math.min(...sVertices.map((v) => v.x));
+
+    // X 범위가 겹치고 Y가 맞닿아있는 경우
+    const xOverlap = aMinX < sMaxX && aMaxX > sMinX;
+    const yTouch = Math.abs(maxY - sMinY) < 3;
+
+    if (xOverlap && yTouch) return true;
+  }
+
+  return false;
+}
+
+// ------------------------------------------------------------
+// applyWallConstraints: 벽 밀착 보정 (이동 후 즉시 적용)
+// ------------------------------------------------------------
+
+export function applyWallConstraints(body: RigidBody, boardWidth: number): RigidBody {
+  const vertices = getWorldVertices(body);
+  const maxX = Math.max(...vertices.map((v) => v.x));
+  const minX = Math.min(...vertices.map((v) => v.x));
+
+  let dx = 0;
+  if (maxX > boardWidth) dx = boardWidth - maxX;
+  if (minX < 0) dx = -minX;
+
+  if (dx === 0) return body;
+
+  return {
+    ...body,
+    position: { x: body.position.x + dx, y: body.position.y },
+  };
 }
 
 // ------------------------------------------------------------
