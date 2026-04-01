@@ -172,3 +172,111 @@ export function rotatePiece(piece: Tetromino): Tetromino {
     angularVelocity: piece.angularVelocity + ANGULAR_IMPULSE,
   };
 }
+
+// ------------------------------------------------------------
+// cutPieceAtLine: 기울어진 블록을 수평선 기준으로 절단
+// ------------------------------------------------------------
+
+/**
+ * 블록을 주어진 수평선(lineY)을 기준으로 위/아래로 절단한다.
+ * 이 프로젝트의 핵심 차별점: 기울어진 블록도 정확히 절단 처리.
+ *
+ * 동작 원리:
+ * 1. 회전이 적용된 실제 셀 좌표를 구한다.
+ * 2. 각 셀을 lineY 기준으로 위(y < lineY)와 아래(y >= lineY)로 분류한다.
+ * 3. 위쪽 셀만으로 새 shape을 구성하여 top Tetromino를 만든다.
+ * 4. 아래쪽 셀만으로 bottom Tetromino를 만든다.
+ * 5. 한쪽에 셀이 없으면 null을 반환한다.
+ */
+export const cutPieceAtLine: CutPieceAtLineFn = (
+  piece: Tetromino,
+  lineY: number
+): { top: Tetromino | null; bottom: Tetromino | null } => {
+  const cells = getRotatedCells(piece);
+
+  // 셀을 lineY 기준으로 분류
+  const topCells = cells.filter((c) => c.y < lineY);
+  const bottomCells = cells.filter((c) => c.y >= lineY);
+
+  /**
+   * 셀 목록으로부터 새 Tetromino를 생성한다.
+   * 셀의 최소 좌표를 기준으로 shape 배열을 재구성하고,
+   * 위치를 해당 최소 좌표로 설정한다.
+   * 절단 후에는 각도를 0으로 리셋한다 (이미 회전이 셀 좌표에 반영됨).
+   */
+  function buildPiece(
+    filteredCells: { x: number; y: number }[]
+  ): Tetromino | null {
+    if (filteredCells.length === 0) return null;
+
+    const minX = Math.min(...filteredCells.map((c) => c.x));
+    const minY = Math.min(...filteredCells.map((c) => c.y));
+    const maxX = Math.max(...filteredCells.map((c) => c.x));
+    const maxY = Math.max(...filteredCells.map((c) => c.y));
+
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    // 새 shape 배열 생성
+    const shape: number[][] = Array.from({ length: height }, () =>
+      Array(width).fill(0)
+    );
+
+    for (const cell of filteredCells) {
+      shape[cell.y - minY][cell.x - minX] = 1;
+    }
+
+    return {
+      shape,
+      x: minX,
+      y: minY,
+      angle: 0, // 회전은 이미 셀 좌표에 반영되었으므로 리셋
+      vx: 0,
+      vy: 0,
+      angularVelocity: 0,
+      color: piece.color,
+    };
+  }
+
+  return {
+    top: buildPiece(topCells),
+    bottom: buildPiece(bottomCells),
+  };
+};
+
+// ------------------------------------------------------------
+// clearLines: 완성된 라인 제거 후 새 보드 반환
+// ------------------------------------------------------------
+
+/**
+ * 보드에서 완성된 라인(모든 셀이 채워진 행)을 제거한다.
+ *
+ * 동작 원리:
+ * 1. 각 행을 검사하여 모든 셀이 null이 아닌 행을 찾는다.
+ * 2. 완성된 행을 제거한다.
+ * 3. 제거된 행 수만큼 빈 행을 보드 상단에 추가한다.
+ * 4. 새 보드와 제거된 라인 수를 반환한다.
+ */
+export const clearLines: ClearLinesFn = (
+  board: Board
+): { board: Board; linesCleared: number } => {
+  const cols = board[0].length;
+
+  // 완성되지 않은 행만 남긴다
+  const remainingRows = board.filter(
+    (row) => !row.every((cell) => cell !== null)
+  );
+
+  const linesCleared = board.length - remainingRows.length;
+
+  // 제거된 행 수만큼 빈 행을 상단에 추가
+  const emptyRows: (string | null)[][] = Array.from(
+    { length: linesCleared },
+    () => Array(cols).fill(null)
+  );
+
+  return {
+    board: [...emptyRows, ...remainingRows],
+    linesCleared,
+  };
+};
