@@ -32,6 +32,7 @@ export const current: CurrentComponent = {
 // -------------------------------------------------------
 let isBatchPending = false;
 const updateQueue: Set<() => void> = new Set();
+const instanceUpdateJobs = new WeakMap<object, () => void>();
 
 export const batchScheduler: BatchScheduler = {
   schedule(updateFn: () => void): void {
@@ -66,6 +67,15 @@ export const useState: UseStateFn = <T>(initialValue: T): UseStateTuple<T> => {
   }
 
   const hookState = instance.hooks[index] as HookState;
+  const updateJob =
+    instanceUpdateJobs.get(instance) ??
+    (() => {
+      instance.update();
+    });
+
+  if (!instanceUpdateJobs.has(instance)) {
+    instanceUpdateJobs.set(instance, updateJob);
+  }
 
   const setState = (action: SetStateAction<T>): void => {
     const prev = hookState.value as T;
@@ -78,7 +88,7 @@ export const useState: UseStateFn = <T>(initialValue: T): UseStateTuple<T> => {
     if (Object.is(prev, next)) return;
 
     hookState.value = next;
-    batchScheduler.schedule(() => instance.update());
+    batchScheduler.schedule(updateJob);
   };
 
   return [hookState.value as T, setState];
