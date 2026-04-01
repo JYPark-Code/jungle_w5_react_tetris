@@ -4,7 +4,7 @@
 // ============================================================
 
 import { Component } from '../core/component';
-import { TetrisAppFn } from './TetrisApp';
+import { TetrisAppFn, triggerStart, triggerPause } from './TetrisApp';
 import { createPlayTab } from './tabs/play';
 import { createWhyTab } from './tabs/why';
 import { createFlamegraphTab, refreshFlamegraph } from './tabs/flamegraph';
@@ -85,6 +85,10 @@ function initApp(): void {
     );
     tetrisApp.mount(scorePanelEl);
   }
+
+  // START/PAUSE 버튼 → TetrisApp 내부 상태 제어
+  document.getElementById('start-btn')?.addEventListener('click', triggerStart);
+  document.getElementById('pause-btn')?.addEventListener('click', triggerPause);
 
   // Flamegraph 버튼 + 구독 즉시 시작
   document.getElementById('flamegraph-refresh-btn')?.addEventListener('click', refreshFlamegraph);
