@@ -78,51 +78,77 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
     graceTimer -= safeDt;
   }
 
-  // --- 문제 1: 고정 낙하 속도 (velocity 누적 아님) ---
   const dropSpeed = getDropSpeed(state.level);
+
+  // --- 파편(dynamic bodies) 물리 처리 ---
+  // bodies 중 isStatic=false인 것들에도 중력+충돌 적용
+  const staticBodies = state.bodies.filter((b) => b.isStatic);
+  let dynamicBodies = state.bodies.filter((b) => !b.isStatic);
+
+  const processedDynamic: RigidBody[] = [];
+  for (const dyn of dynamicBodies) {
+    let d = {
+      ...dyn,
+      position: { ...dyn.position, y: dyn.position.y + dropSpeed * safeDt },
+    };
+    const dWall = checkWallCollision(d, BOARD_WIDTH, BOARD_HEIGHT);
+    d = dWall.body;
+    if (dWall.landed) {
+      processedDynamic.push({ ...d, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 });
+    } else if (staticBodies.length > 0) {
+      const dColl = resolveCollision(d, staticBodies);
+      if (dColl.landed) {
+        processedDynamic.push({ ...dColl.body, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 });
+      } else {
+        processedDynamic.push(dColl.body);
+      }
+    } else {
+      processedDynamic.push(d);
+    }
+  }
+
+  const allBodies = [...staticBodies, ...processedDynamic];
+
+  // --- activeBody 낙하 (고정 속도) ---
   active = {
     ...active,
     position: {
       x: active.position.x + active.velocity.x * safeDt,
       y: active.position.y + dropSpeed * safeDt,
     },
-    // 각속도 적용 + 감쇠
     angle: active.angle + active.angularVelocity * safeDt,
-    angularVelocity: active.angularVelocity * 0.96,
+    angularVelocity: active.angularVelocity * 0.85, // 감쇠 (키를 떼면 자연 정지)
   };
 
-  // --- 3. 벽/바닥 충돌 ---
+  // --- 벽/바닥 충돌 ---
   const wallResult = checkWallCollision(active, BOARD_WIDTH, BOARD_HEIGHT);
   active = wallResult.body;
   let touching = wallResult.landed;
 
-  // --- 4. static bodies와 SAT 충돌 (문제 0: 항상 체크) ---
-  if (state.bodies.length > 0) {
-    const collisionResult = resolveCollision(active, state.bodies);
+  // --- static bodies와 SAT 충돌 ---
+  const allStatic = allBodies.filter((b) => b.isStatic);
+  if (allStatic.length > 0) {
+    const collisionResult = resolveCollision(active, allStatic);
     active = collisionResult.body;
     touching = touching || collisionResult.landed;
   }
 
-  // 수평 속도 감쇠 (문제 6: 기울어져 미끄러짐 허용하되 감쇠)
+  // 수평 속도 감쇠
   active = {
     ...active,
-    velocity: {
-      x: active.velocity.x * 0.9,
-      y: 0, // y 속도는 고정 낙하 속도로 대체
-    },
+    velocity: { x: active.velocity.x * 0.9, y: 0 },
   };
 
-  // --- 문제 2: Lock Delay ---
+  // --- Lock Delay ---
   if (touching) {
     if (lockTimer === 0) {
-      // 첫 착지 감지 → lockTimer 시작
       lockTimer = LOCK_DELAY;
     } else {
       lockTimer -= safeDt;
     }
 
-    // lockTimer 만료 → 고정 (문제 6: 추가 조건 체크)
-    if (lockTimer <= 0 && Math.abs(active.angularVelocity) < 0.05) {
+    // 착지 판정: velocity.y < 5 AND 접촉 중 (angularVelocity 조건 제거)
+    if (lockTimer <= 0) {
       active = {
         ...active,
         isStatic: true,
@@ -130,7 +156,7 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
         angularVelocity: 0,
       };
 
-      const newBodies = [...state.bodies, active];
+      const newBodies = [...allBodies, active];
 
       // 6. 라인 클리어
       const { bodies: clearedBodies, linesCleared } = clearFullLines(
@@ -193,6 +219,7 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
 
   return {
     ...state,
+    bodies: allBodies,
     activeBody: active,
     lockTimer,
     lockResets,
@@ -280,7 +307,8 @@ export function applyRotation(
 ): NotTetrisState {
   if (!state.activeBody || state.isGameOver) return state;
 
-  const impulse = direction === 'cw' ? 3.0 : -3.0;
+  // 고정값 설정 (누적 아님) — 키를 계속 눌러도 동일 속도
+  const fixedSpeed = direction === 'cw' ? 2.0 : -2.0;
 
   let lockTimer = state.lockTimer;
   let lockResets = state.lockResets;
@@ -293,7 +321,7 @@ export function applyRotation(
     ...state,
     activeBody: {
       ...state.activeBody,
-      angularVelocity: state.activeBody.angularVelocity + impulse,
+      angularVelocity: fixedSpeed, // 누적이 아닌 고정값
     },
     lockTimer,
     lockResets,

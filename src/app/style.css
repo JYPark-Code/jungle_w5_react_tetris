@@ -71,8 +71,7 @@ body {
 }
 
 .tab-content.active {
-  display: flex;
-  justify-content: center;
+  display: block;
 }
 
 @keyframes fadeIn {
@@ -214,32 +213,42 @@ body {
    Tab 2, 3, 4 — 정보 탭
    ============================================================ */
 
+/* 패널 공통 — 전체 너비 활용, 흰색 텍스트 */
+.panel-content {
+  width: 100%;
+  max-width: 100%;
+  padding: 32px 48px;
+  box-sizing: border-box;
+  color: #ffffff;
+}
+
 .info-section {
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 8px;
-  padding: 24px;
+  padding: 28px 32px;
   margin-bottom: 20px;
-  max-width: 900px;
   width: 100%;
+  max-width: 100%;
 }
 
 .info-section h2 {
-  color: #4ecdc4;
-  font-size: 18px;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
   margin-bottom: 16px;
 }
 
 .info-section h3 {
   color: #ffe66d;
-  font-size: 14px;
+  font-size: 16px;
   margin: 16px 0 8px;
 }
 
 .info-section p {
-  color: #aaa;
-  font-size: 14px;
-  line-height: 1.8;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .comparison-grid {
@@ -255,20 +264,21 @@ body {
 }
 
 .comparison-col h4 {
-  color: #666;
-  font-size: 13px;
+  color: #4ecdc4;
+  font-size: 15px;
   margin-bottom: 8px;
 }
 
 .comparison-col p {
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.8;
+  color: #ffffff;
 }
 
 .tree-view {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.8;
-  color: #aaa;
+  color: #ffffff;
   white-space: pre;
   font-family: inherit;
   background: #0d0d0d;
@@ -291,40 +301,54 @@ body {
 
 .problem-card .title {
   color: #f44;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: bold;
   margin-bottom: 6px;
 }
 
 .problem-card .cause {
-  color: #888;
-  font-size: 13px;
+  color: #ffffff;
+  font-size: 15px;
 }
 
 .problem-card .solution {
-  color: #4ecdc4;
-  font-size: 13px;
+  color: #00ff88;
+  font-size: 15px;
 }
 
 /* 대응표 */
 .mapping-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .mapping-table th {
   background: #0d0d0d;
   color: #4ecdc4;
-  padding: 10px 16px;
+  padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid #333;
 }
 
 .mapping-table td {
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #1a1a1a;
-  color: #ccc;
+  color: #ffffff;
+}
+
+.mapping-table a {
+  color: #4ecdc4;
+  text-decoration: none;
+}
+
+.mapping-table a:hover {
+  text-decoration: underline;
+}
+
+.observation {
+  font-size: 16px;
+  color: #ffffff;
 }
 
 /* Flamegraph 탭 */

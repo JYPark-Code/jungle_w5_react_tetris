@@ -37,7 +37,7 @@ export function createWhyTab(): HTMLElement {
 ├── <span class="component">&lt;Score /&gt;</span>        ← <span class="props">props: score, level</span>
 ├── <span class="component">&lt;Preview /&gt;</span>      ← <span class="props">props: nextPiece</span>
 └── <span class="component">&lt;HoldPanel /&gt;</span>    ← <span class="props">props: heldPiece</span></div>
-      <p style="margin-top: 12px; color: #888; font-size: 13px;">
+      <p style="margin-top: 12px; color: #ffffff; font-size: 16px;">
         → State는 TetrisApp(루트)에서만 관리<br>
         → 자식은 props만 받는 순수 함수
       </p>
@@ -45,9 +45,9 @@ export function createWhyTab(): HTMLElement {
 
     <div class="info-section">
       <h2>라인 절단 — 핵심 차별점</h2>
-      <p style="color: #aaa; font-size: 13px; line-height: 1.8;">
+      <p style="color: #ffffff; font-size: 16px; line-height: 1.8;">
         기울어진 블록이 완성된 라인에 걸쳐있을 때,<br>
-        <strong style="color: #4ecdc4">cutPieceAtLine()</strong>이 블록을 수평으로 절단합니다.<br>
+        <strong style="color: #00ff88">cutPieceAtLine()</strong>이 블록을 수평으로 절단합니다.<br>
         절단된 위 조각은 다시 중력과 충돌의 영향을 받아 떨어집니다.<br><br>
         이것이 일반 테트리스와의 결정적 차이이며,<br>
         복잡한 상태 변화를 <strong style="color: #ffe66d">선언적으로 처리</strong>할 수 있는 이유를 증명합니다.

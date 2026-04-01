@@ -81,18 +81,43 @@ export function createLifecycleTab(): HTMLElement {
           <tr>
             <th>우리 구현체</th>
             <th>실제 React 대응</th>
+            <th>소스</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>FunctionComponent</td><td>함수형 컴포넌트</td></tr>
-          <tr><td>hooks[] + hookIndex</td><td>Fiber.memoizedState</td></tr>
-          <tr><td>mount() / update()</td><td>Reconciler</td></tr>
-          <tr><td>Batching</td><td>automatic batching (React 18)</td></tr>
-          <tr><td>useEffect cleanup</td><td>componentWillUnmount</td></tr>
-          <tr><td>Fiber 스케줄러</td><td>Fiber 우선순위 큐</td></tr>
+          <tr>
+            <td>FunctionComponent</td>
+            <td>함수형 컴포넌트</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>hooks[] + hookIndex</td>
+            <td>Fiber.memoizedState</td>
+            <td><a href="https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberHooks.js" target="_blank" rel="noopener">GitHub →</a></td>
+          </tr>
+          <tr>
+            <td>mount() / update()</td>
+            <td>Reconciler</td>
+            <td><a href="https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberBeginWork.js" target="_blank" rel="noopener">GitHub →</a></td>
+          </tr>
+          <tr>
+            <td>Batching</td>
+            <td>automatic batching (React 18)</td>
+            <td><a href="https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberWorkLoop.js" target="_blank" rel="noopener">GitHub →</a></td>
+          </tr>
+          <tr>
+            <td>useEffect cleanup</td>
+            <td>componentWillUnmount</td>
+            <td><a href="https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactFiberCommitWork.js" target="_blank" rel="noopener">GitHub →</a></td>
+          </tr>
+          <tr>
+            <td>Fiber 스케줄러</td>
+            <td>Fiber 우선순위 큐</td>
+            <td><a href="https://github.com/facebook/react/blob/main/packages/scheduler/src/forks/Scheduler.js" target="_blank" rel="noopener">GitHub →</a></td>
+          </tr>
         </tbody>
       </table>
-      <p style="margin-top: 16px; color: #ffe66d; font-size: 14px; text-align: center;">
+      <p style="margin-top: 20px; color: #ffe66d; font-size: 18px; text-align: center; font-weight: bold;">
         "우리가 겪은 문제가 React가 이 기능을 만든 이유와 동일했습니다"
       </p>
     </div>
