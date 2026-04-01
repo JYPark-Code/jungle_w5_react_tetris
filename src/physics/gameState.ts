@@ -102,7 +102,11 @@ function removeLineFromPieces(
       shape[cell.y - minY][cell.x - minX] = 1;
     }
 
-    result.push({ ...piece, shape, x: minX, y: minY, angle: 0, vy: 0, vx: 0 });
+    // getRotatedCells는 cell.y = Math.round(piece.y + (rowIndex - cy)) 계산
+    // piece.y = minY + cy 로 설정해야 첫 번째 행이 minY에 정확히 배치됨
+    const cx = (width - 1) / 2;
+    const cy = (height - 1) / 2;
+    result.push({ ...piece, shape, x: minX + cx, y: minY + cy, angle: 0, vy: 0, vx: 0 });
   }
 
   return result;
