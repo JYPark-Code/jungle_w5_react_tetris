@@ -149,12 +149,11 @@ export function updateMatter(
   let newState = { ...state };
 
   if (linesToClear.length > 0 && !state.isCutting) {
-    // 라인 클리어 실행 (원본 removeline)
     for (const lineNo of linesToClear) {
       removeLine(state.engine, lineNo, CELL_SIZE);
     }
 
-    const scoreAdd = calcScore(linesToClear.length, lineAreas, state.level);
+    const scoreAdd = calcScore(linesToClear.length, lineAreas, linesToClear, state.level);
     const newLinesCleared = state.linesCleared + linesToClear.length;
     const newLevel = Math.floor(newLinesCleared / 10) + 1;
 
@@ -163,7 +162,16 @@ export function updateMatter(
       score: state.score + scoreAdd,
       linesCleared: newLinesCleared,
       level: newLevel,
+      isCutting: true,
+      cuttingTimer: 0.3,
     };
+  } else if (state.isCutting) {
+    const newTimer = state.cuttingTimer - dt;
+    if (newTimer <= 0) {
+      newState = { ...newState, isCutting: false, cuttingTimer: 0 };
+    } else {
+      newState = { ...newState, cuttingTimer: newTimer };
+    }
   }
 
   // --- 게임 오버 체크 ---
@@ -281,10 +289,13 @@ function getDropSpeed(level: number): number {
 function calcScore(
   numLines: number,
   lineAreas: number[],
+  clearedRows: number[],
   level: number,
 ): number {
-  // level 매개변수는 향후 확장을 위해 보존
   void level;
-  const avgArea = lineAreas.reduce((a, b) => a + b, 0) / numLines / 10240;
+  // 클리어된 행의 면적만 합산 (전체 행 합산 금지)
+  const clearedAreaSum = clearedRows.reduce((sum, row) => sum + (lineAreas[row] ?? 0), 0);
+  // avgArea = 클리어된 행의 평균 채움 비율 (0~1로 clamp)
+  const avgArea = Math.min(1.0, clearedAreaSum / numLines / 10240);
   return Math.ceil((numLines * 3) ** (avgArea ** 10) * 20 + numLines ** 2 * 40);
 }

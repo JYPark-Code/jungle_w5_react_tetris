@@ -90,14 +90,30 @@ function getCurrentKeys() {
 
 function isBodyOnGround(state: MatterGameState): boolean {
   if (!state.activeBody) return false;
-  // Matter.js 충돌 쌍에서 activeBody가 포함된 것이 있는지 확인
   const pairs = state.engine.pairs.list;
-  return pairs.some(
-    (pair: any) =>
-      (pair.bodyA === state.activeBody || pair.bodyB === state.activeBody ||
-       pair.bodyA.parent === state.activeBody || pair.bodyB.parent === state.activeBody) &&
-      pair.isActive
-  );
+  return pairs.some((pair: any) => {
+    if (!pair.isActive) return false;
+
+    const isActive =
+      pair.bodyA === state.activeBody ||
+      pair.bodyB === state.activeBody ||
+      pair.bodyA.parent === state.activeBody ||
+      pair.bodyB.parent === state.activeBody;
+
+    if (!isActive) return false;
+
+    // 충돌 상대방 찾기
+    const other =
+      (pair.bodyA === state.activeBody || pair.bodyA.parent === state.activeBody)
+        ? pair.bodyB
+        : pair.bodyA;
+
+    // 벽(left/right) 충돌은 착지 판정 제외
+    const otherLabel = other.label ?? (other as any).parent?.label ?? '';
+    if (otherLabel === 'left' || otherLabel === 'right') return false;
+
+    return true;
+  });
 }
 
 // ============================================================

@@ -71,54 +71,61 @@ export function removeLine(
     .filter(b => !b.isStatic && (b as any).kind);
 
   for (const body of bodies) {
-    const verts = body.vertices;
-    const minY = Math.min(...verts.map(v => v.y));
-    const maxY = Math.max(...verts.map(v => v.y));
+    // compound body: parts[0]=parent, parts[1..]=실제 셀
+    const parts = body.parts.length > 1 ? body.parts.slice(1) : [body];
+    const bodyVerts = parts.flatMap(p => Array.from(p.vertices));
 
-    // 이 body가 클리어 라인과 겹치는지
-    if (maxY <= lineTop || minY >= lineBottom) {
-      // 겹치지 않음 → 그대로 유지
-      continue;
-    }
+    const minY = Math.min(...bodyVerts.map(v => v.y));
+    const maxY = Math.max(...bodyVerts.map(v => v.y));
+
+    if (maxY <= lineTop || minY >= lineBottom) continue;
 
     const kind = (body as any).kind;
     const color = (body as any).color;
 
-    // body 제거
+    // body 전체 제거
     Matter.Composite.remove(engine.world, body);
 
-    // 클리어 라인 위쪽 부분만 새 body로 재생성
-    const aboveVerts = clipVertsAboveLine(verts, lineTop);
+    // 각 part별로 위쪽 조각 재생성
+    for (const part of parts) {
+      const partVerts = Array.from(part.vertices);
+      const partMinY = Math.min(...partVerts.map(v => v.y));
+      const partMaxY = Math.max(...partVerts.map(v => v.y));
 
-    if (aboveVerts.length >= 3) {
-      const center = centroid(aboveVerts);
-
-      // 새 body 생성 (중력 다시 받도록 isStatic=false)
-      // Bodies.fromVertices는 Vector[][] (배열의 배열)을 기대
-      const newBody = Matter.Bodies.fromVertices(
-        center.x,
-        center.y,
-        [aboveVerts],
-        {
-          isStatic: false,
-          frictionAir: 0.05,
-          restitution: 0.1,
-          friction: 0.3,
-          label: 'fragment',
-        },
-      );
-
-      if (newBody) {
-        (newBody as any).kind = kind;
-        (newBody as any).color = color;
-        (newBody as any).isActive = false;
-
-        // 초기 속도 0으로 재낙하 시작
-        Matter.Body.setVelocity(newBody, { x: 0, y: 0 });
-        Matter.Composite.add(engine.world, newBody);
+      if (partMaxY <= lineTop) {
+        // 완전히 위에 있음 → 개별 body로 재생성
+        const center = centroid(partVerts);
+        const localVerts = partVerts.map(v => ({ x: v.x - center.x, y: v.y - center.y }));
+        const newPart = Matter.Bodies.fromVertices(center.x, center.y, [localVerts], {
+          isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3,
+        });
+        if (newPart) {
+          (newPart as any).kind = kind;
+          (newPart as any).color = color;
+          Matter.Body.setPosition(newPart, center);
+          Matter.Body.setVelocity(newPart, { x: 0, y: 0 });
+          Matter.Composite.add(engine.world, newPart);
+        }
+      } else if (partMinY < lineTop && partMaxY > lineTop) {
+        // 클리어 라인에 걸침 → 위쪽만 클리핑
+        const aboveVerts = clipVertsAboveLine(partVerts, lineTop);
+        if (aboveVerts.length >= 3) {
+          const center = centroid(aboveVerts);
+          const localVerts = aboveVerts.map(v => ({ x: v.x - center.x, y: v.y - center.y }));
+          const newPart = Matter.Bodies.fromVertices(center.x, center.y, [localVerts], {
+            isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3,
+          });
+          if (newPart) {
+            (newPart as any).kind = kind;
+            (newPart as any).color = color;
+            Matter.Body.setPosition(newPart, center);
+            Matter.Body.setVelocity(newPart, { x: 0, y: 0 });
+            Matter.Composite.add(engine.world, newPart);
+          }
+        }
       }
+      // partMinY >= lineBottom → 완전히 아래 → 삭제
     }
-    // 아래쪽 부분은 삭제 (추가 안 함)
   }
 }
 
