@@ -43,12 +43,16 @@ describe('snapRotate', () => {
 });
 
 describe('hardDrop', () => {
-  it('active body의 vy가 MAX_VY로 설정되어야 한다', () => {
+  it('블록이 즉시 착지하고 새 블록이 생성되어야 한다', () => {
     const state = initTetrisState();
+    const origActiveId = state.activeId;
     const result = hardDrop(state);
-    const body = result.bodies.find(b => b.id === result.activeId);
-    expect(body).toBeDefined();
-    if (body) expect(body.velocity.y).toBe(15);
+    // 기존 active body는 isStatic이 됨
+    const oldActive = result.bodies.find(b => b.id === origActiveId);
+    expect(oldActive).toBeDefined();
+    if (oldActive) expect(oldActive.isStatic).toBe(true);
+    // 새 active body가 생성됨
+    expect(result.activeId).not.toBe(origActiveId);
   });
 });
 

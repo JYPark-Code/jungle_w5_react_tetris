@@ -167,7 +167,7 @@ export function removeLinesFromBodies(
           parts: [{ localVerts: verts.map(v => ({ x: v.x - cx, y: v.y - cy })) }],
           isStatic: false,
           angle: 0,
-          velocity: { x: 0, y: 0.5 },
+          velocity: { x: 0, y: 2 },  // 파편 초기 낙하 속도 (중력이 누적 가속)
           angularVelocity: 0,
         });
       }

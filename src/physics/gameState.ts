@@ -5,7 +5,7 @@
 
 import {
   Body, BOARD_WIDTH, BOARD_HEIGHT, CELL_SIZE, DROP_SPEED, MAX_VY,
-  createTetromino, getAllWorldVerts,
+  createTetromino, getAllWorldVerts, getWorldVerts, checkCollision,
   applyGravity, integratePosition, applyWallConstraints, resolveBodyCollisions, checkLanding,
 } from './engine';
 import { checkLineDensity, removeLinesFromBodies } from './linecut';
@@ -138,7 +138,6 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
     else lockTimer -= safeDt;
 
     if (lockTimer <= 0) {
-      console.log('[Lock]', 'score:', score, 'lines:', linesCleared);
       // 블록 고정
       bodies = bodies.map(b =>
         b.id === activeId
@@ -149,6 +148,7 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
       // 라인 클리어 체크
       const { linesToClear, lineAreas } = checkLineDensity(bodies, BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE);
       if (linesToClear.length > 0) {
+        console.log('[LineClear]', linesToClear.length, 'lines, rows:', linesToClear);
         bodies = removeLinesFromBodies(bodies, linesToClear, CELL_SIZE);
         const sum = linesToClear.reduce((s, r) => s + (lineAreas[r] ?? 0), 0);
         const avg = Math.min(1, sum / linesToClear.length / 10240);
@@ -198,15 +198,85 @@ export function snapRotate(state: TetrisState): TetrisState {
   };
 }
 
-/** 하드 드롭 (Space) */
+/** 하드 드롭 (Space) — step-by-step 충돌 체크로 정확한 착지 */
 export function hardDrop(state: TetrisState): TetrisState {
+  if (state.activeId === null) return state;
+  const active = state.bodies.find(b => b.id === state.activeId);
+  if (!active) return state;
+
+  const statics = state.bodies.filter(b => b.isStatic);
+  const step = 2;
+  let testBody = { ...active, position: { ...active.position } };
+
+  // step씩 내리면서 충돌 직전까지 이동
+  while (true) {
+    const nextPos = { x: testBody.position.x, y: testBody.position.y + step };
+    const nextBody = { ...testBody, position: nextPos };
+
+    // 바닥 체크
+    const testVerts = nextBody.parts.flatMap(p => getWorldVerts(p, nextPos, nextBody.angle));
+    if (Math.max(...testVerts.map(v => v.y)) >= BOARD_HEIGHT) break;
+
+    // static body 충돌 체크
+    let hit = false;
+    for (const s of statics) {
+      for (const pa of nextBody.parts) {
+        const wva = getWorldVerts(pa, nextPos, nextBody.angle);
+        for (const pb of s.parts) {
+          const wvb = getWorldVerts(pb, s.position, s.angle);
+          if (checkCollision(wva, wvb).colliding) { hit = true; break; }
+        }
+        if (hit) break;
+      }
+      if (hit) break;
+    }
+    if (hit) break;
+
+    testBody = nextBody;
+  }
+
+  // 즉시 착지 (lockTimer 스킵)
+  const landedBody = {
+    ...testBody,
+    isStatic: true,
+    isActive: false,
+    velocity: { x: 0, y: 0 },
+    angularVelocity: 0,
+  };
+
+  let bodies = state.bodies.map(b => b.id === state.activeId ? landedBody : b);
+
+  // 라인 클리어
+  let { score, linesCleared, level } = state;
+  const { linesToClear, lineAreas } = checkLineDensity(bodies, BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE);
+  let clearCooldown = state.clearCooldown;
+
+  if (linesToClear.length > 0) {
+    console.log('[HardDrop LineClear]', linesToClear);
+    bodies = removeLinesFromBodies(bodies, linesToClear, CELL_SIZE);
+    const sum = linesToClear.reduce((s, r) => s + (lineAreas[r] ?? 0), 0);
+    const avg = Math.min(1, sum / linesToClear.length / 10240);
+    score += Math.ceil((linesToClear.length * 3) ** (avg ** 10) * 20 + linesToClear.length ** 2 * 40);
+    linesCleared += linesToClear.length;
+    level = Math.floor(linesCleared / 10) + 1;
+    clearCooldown = CLEAR_COOLDOWN;
+  }
+
+  // 새 블록 생성
+  const newActive = createTetromino(state.nextKind, SPAWN_X, SPAWN_Y);
+  bodies = [...bodies, newActive];
+
   return {
     ...state,
-    bodies: state.bodies.map(b =>
-      b.id === state.activeId
-        ? { ...b, velocity: { x: 0, y: MAX_VY } }
-        : b
-    ),
+    bodies,
+    activeId: newActive.id,
+    nextKind: Math.ceil(Math.random() * 7),
+    canHold: true,
+    score,
+    linesCleared,
+    level,
+    clearCooldown,
+    lockTimer: 0,
   };
 }
 

@@ -52,6 +52,15 @@ export const TetrisAppFn = (props: {
     }
     if (props.nextCanvas) renderPreview(props.nextCanvas, gameState.nextKind, TETROMINO_COLORS);
     if (props.holdCanvas) renderPreview(props.holdCanvas, gameState.heldKind, TETROMINO_COLORS);
+
+    // 직접 DOM 업데이트 (custom React diff/patch 보완)
+    const scoreEl = document.getElementById('score-value');
+    const levelEl = document.getElementById('level-value');
+    const linesEl = document.getElementById('lines-value');
+    if (scoreEl) scoreEl.textContent = String(gameState.score);
+    if (levelEl) levelEl.textContent = String(gameState.level);
+    if (linesEl) linesEl.textContent = String(gameState.linesCleared);
+
     // 1. TetrisApp — canvas 전체 렌더링 시간
     metricsStore.record({
       componentName: 'TetrisApp',
