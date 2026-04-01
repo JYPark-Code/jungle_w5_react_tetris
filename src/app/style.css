@@ -429,7 +429,7 @@ body {
 /* 인트로 — 세로 중앙 */
 .why-intro {
   flex-direction: column;
-  gap: 32px;
+  gap: 48px;
   text-align: center;
 }
 
@@ -437,25 +437,25 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 
 .why-title {
-  font-size: 36px;
+  font-size: 64px;
   font-weight: bold;
   color: #fff;
 }
 
 .why-subtitle {
-  font-size: 18px;
+  font-size: 32px;
   color: #ccc;
   line-height: 1.8;
 }
 
 .why-scroll-hint {
-  font-size: 14px;
+  font-size: 24px;
   color: #555;
-  margin-top: 24px;
+  margin-top: 32px;
   animation: whyBounce 2s ease infinite;
 }
 
@@ -482,7 +482,7 @@ body {
 }
 
 .why-col-text {
-  max-width: 440px;
+  max-width: 640px;
 }
 
 /* 캔버스 공통 */
@@ -495,20 +495,20 @@ body {
 
 /* Hook 이름 */
 .why-hook-name {
-  font-size: 28px;
+  font-size: 48px;
   font-weight: bold;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 /* Hook 설명 */
 .why-hook-desc {
-  font-size: 18px;
+  font-size: 30px;
   color: #fff;
   line-height: 1.8;
 }
 
 .why-hook-detail {
-  font-size: 16px;
+  font-size: 26px;
   color: #ccc;
   line-height: 1.8;
 }
@@ -522,22 +522,22 @@ body {
 .why-divider {
   height: 1px;
   background: #333;
-  margin: 20px 0;
+  margin: 28px 0;
 }
 
 /* 비교 블록 (useState) */
 .why-compare {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .why-compare-bad,
 .why-compare-good {
   background: #0d0d0d;
   border-radius: 8px;
-  padding: 16px;
-  font-size: 15px;
+  padding: 24px;
+  font-size: 24px;
   line-height: 1.8;
   color: #aaa;
 }
@@ -559,18 +559,18 @@ body {
 /* 버튼 그룹 */
 .why-btn-group {
   display: flex;
-  gap: 12px;
+  gap: 16px;
 }
 
 .why-btn {
-  padding: 10px 20px;
-  border-radius: 6px;
+  padding: 16px 32px;
+  border-radius: 8px;
   border: 1px solid #555;
   background: transparent;
   color: #fff;
   cursor: pointer;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 22px;
   transition: all 0.2s;
 }
 
@@ -601,7 +601,7 @@ body {
 /* 섹션 4: Component 분리 */
 .why-component {
   flex-direction: column;
-  gap: 32px;
+  gap: 48px;
 }
 
 .why-component-header {
@@ -610,21 +610,21 @@ body {
 
 .why-component-body {
   display: flex;
-  gap: 64px;
+  gap: 80px;
   align-items: center;
   justify-content: center;
 }
 
 /* 컴포넌트 트리 */
 .why-tree {
-  font-size: 16px;
-  line-height: 2.2;
+  font-size: 28px;
+  line-height: 2.4;
 }
 
 .why-tree-node {
   color: #fff;
   font-family: 'Consolas', 'Monaco', monospace;
-  padding: 2px 8px;
+  padding: 4px 12px;
   border-radius: 4px;
   transition: color 0.15s, text-shadow 0.15s;
 }
@@ -635,8 +635,8 @@ body {
 }
 
 .why-tree-badge {
-  font-size: 13px;
-  margin-left: 8px;
+  font-size: 22px;
+  margin-left: 12px;
 }
 
 .why-badge-red {
@@ -648,8 +648,8 @@ body {
 }
 
 .why-tree-note {
-  margin-top: 16px;
-  font-size: 15px;
+  margin-top: 24px;
+  font-size: 26px;
   color: #888;
   line-height: 1.8;
   font-family: inherit;
@@ -693,26 +693,26 @@ body {
 /* 인트로 */
 .learn-intro {
   flex-direction: column;
-  gap: 24px;
+  gap: 48px;
   text-align: center;
 }
 
 .learn-title {
-  font-size: 36px;
+  font-size: 64px;
   font-weight: bold;
   color: #fff;
 }
 
 .learn-subtitle {
-  font-size: 20px;
+  font-size: 32px;
   color: #fff;
   line-height: 1.8;
 }
 
 .learn-scroll-hint {
-  font-size: 14px;
+  font-size: 24px;
   color: #555;
-  margin-top: 24px;
+  margin-top: 32px;
   animation: whyBounce 2s ease infinite;
 }
 
@@ -726,7 +726,7 @@ body {
 }
 
 .learn-col-text {
-  max-width: 440px;
+  max-width: 640px;
 }
 
 .learn-col-visual {
@@ -743,31 +743,31 @@ body {
 
 /* 섹션 1: Hook 배치 */
 .learn-heading {
-  font-size: 28px;
+  font-size: 48px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 24px;
+  margin-bottom: 36px;
 }
 
 .learn-hook-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 28px;
 }
 
 .learn-hook-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .learn-hook-label {
-  font-size: 18px;
+  font-size: 30px;
   font-weight: bold;
 }
 
 .learn-hook-desc {
-  font-size: 15px;
+  font-size: 24px;
   color: #ccc;
   padding-left: 4px;
 }
@@ -776,9 +776,9 @@ body {
   background: #1a1a2e;
   border: 1px solid #333;
   border-radius: 8px;
-  padding: 24px 28px;
+  padding: 36px 40px;
   font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 14px;
+  font-size: 22px;
   line-height: 1.8;
   color: #fff;
   white-space: pre;
@@ -790,38 +790,38 @@ body {
   display: inline-block;
   background: #f44;
   color: #fff;
-  font-size: 13px;
+  font-size: 22px;
   font-weight: bold;
-  padding: 4px 12px;
-  border-radius: 12px;
-  margin-bottom: 12px;
+  padding: 8px 20px;
+  border-radius: 16px;
+  margin-bottom: 16px;
 }
 
 .learn-problem-title {
-  font-size: 24px;
+  font-size: 40px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .learn-problem-divider {
   height: 1px;
   background: #333;
-  margin: 20px 0;
+  margin: 28px 0;
 }
 
 .learn-problem-detail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .learn-problem-cause {
   background: #0d0d0d;
-  border-left: 3px solid #f44;
+  border-left: 4px solid #f44;
   border-radius: 0 8px 8px 0;
-  padding: 16px;
-  font-size: 15px;
+  padding: 24px;
+  font-size: 24px;
   line-height: 1.8;
   color: #fff;
 }
@@ -832,10 +832,10 @@ body {
 
 .learn-problem-solution {
   background: #0d0d0d;
-  border-left: 3px solid #00ff88;
+  border-left: 4px solid #00ff88;
   border-radius: 0 8px 8px 0;
-  padding: 16px;
-  font-size: 15px;
+  padding: 24px;
+  font-size: 24px;
   line-height: 1.8;
   color: #fff;
 }
@@ -848,33 +848,33 @@ body {
 .learn-counter-demo {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  min-width: 280px;
+  gap: 28px;
+  min-width: 400px;
 }
 
 .learn-counter-box {
   background: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 8px;
-  padding: 20px 24px;
+  border-radius: 12px;
+  padding: 32px 36px;
   text-align: center;
 }
 
 .learn-counter-label {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 8px;
-}
-
-.learn-counter-detail {
-  font-size: 14px;
-  color: #888;
   margin-bottom: 12px;
 }
 
+.learn-counter-detail {
+  font-size: 22px;
+  color: #888;
+  margin-bottom: 16px;
+}
+
 .learn-counter-num {
-  font-size: 36px;
+  font-size: 56px;
   font-weight: bold;
 }
 
@@ -882,42 +882,42 @@ body {
 .learn-cleanup-demo {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  min-width: 280px;
+  gap: 28px;
+  min-width: 400px;
 }
 
 .learn-cleanup-box {
   background: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 8px;
-  padding: 20px 24px;
+  border-radius: 12px;
+  padding: 32px 36px;
 }
 
 .learn-cleanup-title {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-cleanup-loops {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-loop-bar {
   display: block;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 22px;
   color: #fff;
   font-weight: bold;
 }
 
 .learn-cleanup-result {
-  font-size: 14px;
+  font-size: 24px;
   color: #ccc;
 }
 
@@ -925,41 +925,41 @@ body {
 .learn-hooks-demo {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  min-width: 280px;
+  gap: 28px;
+  min-width: 400px;
 }
 
 .learn-hooks-box {
   background: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 8px;
-  padding: 20px 24px;
+  border-radius: 12px;
+  padding: 32px 36px;
 }
 
 .learn-hooks-title {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: bold;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-hooks-slots {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-hook-slot {
   border: 1px solid #555;
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-size: 14px;
+  border-radius: 6px;
+  padding: 14px 20px;
+  font-size: 24px;
   font-family: 'Consolas', 'Monaco', monospace;
   color: #fff;
 }
 
 .learn-hooks-result {
-  font-size: 14px;
+  font-size: 24px;
   color: #00ff88;
 }
 
@@ -967,52 +967,52 @@ body {
 .learn-fiber-demo {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  min-width: 280px;
+  gap: 28px;
+  min-width: 400px;
 }
 
 .learn-fiber-box {
   background: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 8px;
-  padding: 20px 24px;
+  border-radius: 12px;
+  padding: 32px 36px;
 }
 
 .learn-fiber-title {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-fiber-queue {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .learn-fiber-item {
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 14px 20px;
+  border-radius: 6px;
+  font-size: 24px;
   color: #fff;
   font-weight: bold;
 }
 
 .learn-fiber-note {
-  font-size: 14px;
+  font-size: 24px;
   color: #888;
 }
 
 /* 섹션 7: React 비교 테이블 */
 .learn-comparison {
   flex-direction: column;
-  gap: 32px;
+  gap: 48px;
 }
 
 .learn-comparison-title {
-  font-size: 28px;
+  font-size: 48px;
   font-weight: bold;
   color: #fff;
   text-align: center;
@@ -1021,22 +1021,22 @@ body {
 
 .learn-table {
   width: 100%;
-  max-width: 800px;
+  max-width: 1100px;
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: 24px;
 }
 
 .learn-table th {
   background: #1a1a2e;
   color: #4ecdc4;
-  padding: 14px 20px;
+  padding: 20px 28px;
   text-align: left;
   border-bottom: 2px solid #333;
   font-weight: bold;
 }
 
 .learn-table td {
-  padding: 14px 20px;
+  padding: 20px 28px;
   border-bottom: 1px solid #222;
   color: #fff;
 }
@@ -1044,7 +1044,7 @@ body {
 .learn-table a {
   color: #4ecdc4;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 22px;
 }
 
 .learn-table a:hover {
