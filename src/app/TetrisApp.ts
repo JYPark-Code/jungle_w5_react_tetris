@@ -52,12 +52,37 @@ export const TetrisAppFn = (props: {
     }
     if (props.nextCanvas) renderPreview(props.nextCanvas, gameState.nextKind, TETROMINO_COLORS);
     if (props.holdCanvas) renderPreview(props.holdCanvas, gameState.heldKind, TETROMINO_COLORS);
+    // 1. TetrisApp — canvas 전체 렌더링 시간
     metricsStore.record({
       componentName: 'TetrisApp',
       duration: performance.now() - t,
       timestamp: performance.now(),
       renderIndex: staticCount,
     });
+
+    // 2. ScoreBoard — 점수가 바뀔 때만 기록 (diff/patch 시연용)
+    const prevScore = (props.boardCanvas as any)?._prevScore ?? -1;
+    if (gameState.score !== prevScore) {
+      const scoreStart = performance.now();
+      metricsStore.record({
+        componentName: 'ScoreBoard',
+        duration: Math.max(0.1, performance.now() - scoreStart),
+        timestamp: performance.now(),
+        renderIndex: staticCount,
+      });
+      if (props.boardCanvas) (props.boardCanvas as any)._prevScore = gameState.score;
+    }
+
+    // 3. Block — active block이 있을 때마다 기록
+    const activeBody = gameState.bodies.find(b => b.id === gameState.activeId);
+    if (activeBody) {
+      metricsStore.record({
+        componentName: 'Block',
+        duration: 0.3,
+        timestamp: performance.now(),
+        renderIndex: staticCount,
+      });
+    }
   }, [gameState]);
 
   // useEffect: 게임 루프 (cleanup으로 중복 방지)

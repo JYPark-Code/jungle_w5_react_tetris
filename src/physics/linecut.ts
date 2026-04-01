@@ -99,7 +99,8 @@ export function removeLinesFromBodies(
 
     for (const body of result) {
       // 비정적 body 또는 벽/바닥(kind=0)은 그대로 유지
-      if (!body.isStatic || body.kind === 0) {
+      // isStatic 조건 제거 → 비정적 파편도 처리 대상
+      if (body.kind === 0) {
         nextResult.push(body);
         continue;
       }
