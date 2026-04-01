@@ -42,9 +42,11 @@ export function createPlayTab(): HTMLElement {
     </div>
     <div class="panel-box">
       <div class="score-display">
-        SCORE: <span class="value" id="score-value">0</span><br>
-        LEVEL: <span class="value" id="level-value">1</span><br>
-        LINES: <span class="value" id="lines-value">0</span>
+        SCORE<span class="value" id="score-value">0</span>
+        <div style="display:flex;gap:16px;margin-top:4px;">
+          <div>LEVEL<span class="value small" id="level-value">1</span></div>
+          <div>LINES<span class="value small" id="lines-value">0</span></div>
+        </div>
       </div>
     </div>
     <div class="panel-box">

@@ -135,7 +135,11 @@ export function checkWallCollision(
       const penetration = v.y - boardHeight;
       newBody.position.y -= penetration;
       newBody.velocity.y = -Math.abs(newBody.velocity.y) * RESTITUTION;
-      landed = true;
+      newBody.velocity.x *= 0.7; // 바닥 마찰
+      // 속도가 충분히 작으면 착지
+      if (Math.abs(newBody.velocity.y) < 30) {
+        landed = true;
+      }
     }
   }
 
@@ -272,41 +276,43 @@ export function resolveCollision(
   active: RigidBody,
   statics: RigidBody[]
 ): { body: RigidBody; landed: boolean } {
-  const RESTITUTION = 0.3;
-  const STATIC_THRESHOLD_VY = 15;      // 이 속도 이하면 착지로 판정
-  const STATIC_THRESHOLD_AV = 0.3;     // 각속도 임계치
+  const RESTITUTION = 0.2;
+  const STATIC_THRESHOLD_VY = 30;      // 이 속도 이하면 착지로 판정
+  const STATIC_THRESHOLD_AV = 0.5;     // 각속도 임계치
+  const FRICTION = 0.7;                // 충돌 시 수평 속도 감쇠
 
   let result = { ...active, position: { ...active.position }, velocity: { ...active.velocity } };
-  let landed = false;
+  let hadCollision = false;
 
   for (const stat of statics) {
     const collision = checkBodyCollision(result, stat);
     if (collision.colliding && collision.mtv && collision.depth) {
-      // 위치 보정: MTV(최소 관통 벡터) 반대 방향으로 밀어냄
+      hadCollision = true;
+
+      // 위치 보정: MTV 반대 방향으로 밀어냄 (약간 더 밀어서 관통 방지)
       result.position = {
-        x: result.position.x - collision.mtv.x * collision.depth,
-        y: result.position.y - collision.mtv.y * collision.depth,
+        x: result.position.x - collision.mtv.x * (collision.depth + 0.5),
+        y: result.position.y - collision.mtv.y * (collision.depth + 0.5),
       };
 
       // 속도 반전 + 감쇠
       const dot = v2dot(result.velocity, collision.mtv);
       if (dot > 0) {
         result.velocity = {
-          x: result.velocity.x - collision.mtv.x * dot * (1 + RESTITUTION),
+          x: (result.velocity.x - collision.mtv.x * dot * (1 + RESTITUTION)) * FRICTION,
           y: result.velocity.y - collision.mtv.y * dot * (1 + RESTITUTION),
         };
       }
+
+      // 각속도도 감쇠
+      result.angularVelocity = (result.angularVelocity ?? active.angularVelocity) * 0.7;
     }
   }
 
-  // 착지 판정: 속도와 각속도가 충분히 작으면 정지
-  if (
+  // 착지 판정: 충돌이 있었고 + 속도가 충분히 작으면 정지
+  const landed = hadCollision &&
     Math.abs(result.velocity.y) < STATIC_THRESHOLD_VY &&
-    Math.abs(result.angularVelocity) < STATIC_THRESHOLD_AV &&
-    statics.some((s) => checkBodyCollision(result, s).colliding)
-  ) {
-    landed = true;
-  }
+    Math.abs(result.angularVelocity ?? 0) < STATIC_THRESHOLD_AV;
 
   return { body: result, landed };
 }

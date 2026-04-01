@@ -69,11 +69,16 @@ export function nextTick(state: NotTetrisState, dt: number): NotTetrisState {
   active = wallResult.body;
   let landed = wallResult.landed;
 
-  // 4. static bodies와 충돌
-  if (!landed && state.bodies.length > 0) {
+  // 4. static bodies와 충돌 (착지 여부와 무관하게 항상 체크)
+  if (state.bodies.length > 0) {
     const collisionResult = resolveCollision(active, state.bodies);
     active = collisionResult.body;
     landed = landed || collisionResult.landed;
+  }
+
+  // 바닥에 닿아서 속도가 거의 0이면 강제 착지
+  if (!landed && wallResult.landed && Math.abs(active.velocity.y) < 5) {
+    landed = true;
   }
 
   // 5. 착지 판정

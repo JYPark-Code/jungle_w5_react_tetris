@@ -21,8 +21,9 @@ import { renderFrame, renderPreviewBody } from '../physics/renderer';
 // 탭 모듈
 import { createPlayTab } from './tabs/play';
 import { createWhyTab } from './tabs/why';
-import { createFlamegraphTab, getFlamegraphPanel, refreshFlamegraph } from './tabs/flamegraph';
+import { createFlamegraphTab, refreshFlamegraph } from './tabs/flamegraph';
 import { createLifecycleTab } from './tabs/lifecycle';
+import { metricsStore } from './metricsStore';
 
 // ============================================================
 // 게임 상태
@@ -124,9 +125,9 @@ function gameLoop(timestamp: number): void {
     renderPreviewBody(holdCanvas, gameState.heldBody);
   }
 
-  // Flamegraph 데이터 기록
+  // Flamegraph 데이터 기록 (metricsStore 경유)
   const duration = performance.now() - startTime;
-  getFlamegraphPanel().record({
+  metricsStore.record({
     componentName: 'GameLoop',
     duration,
     timestamp: performance.now(),
@@ -136,6 +137,7 @@ function gameLoop(timestamp: number): void {
   // 게임 오버 시 루프 중단
   if (gameState.isGameOver) {
     isRunning = false;
+    metricsStore.setLive(false);
     return;
   }
 
@@ -157,7 +159,8 @@ function startGame(): void {
   isPaused = false;
   renderIndex = 0;
   lastTimestamp = 0;
-  getFlamegraphPanel().clear();
+  metricsStore.clear();
+  metricsStore.setLive(true);
   animFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -259,7 +262,7 @@ function initApp(): void {
   document.getElementById('pause-btn')?.addEventListener('click', togglePause);
   document.getElementById('flamegraph-refresh-btn')?.addEventListener('click', refreshFlamegraph);
   document.getElementById('flamegraph-clear-btn')?.addEventListener('click', () => {
-    getFlamegraphPanel().clear();
+    metricsStore.clear();
     refreshFlamegraph();
   });
 }
