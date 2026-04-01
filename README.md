@@ -35,11 +35,11 @@ npm test
 # 3. 타입 체크
 npx tsc --noEmit
 
-# 4. 개발 서버 (M5 통합 완료 후)
-npx serve -l 3000
+# 4. 개발 서버
+npm run dev
 ```
 
-브라우저에서 `http://localhost:3000` 접속
+브라우저에서 `http://localhost:5173` 접속
 
 ---
 
@@ -291,9 +291,13 @@ src/
 │   └── scheduler.ts         # Fiber 우선순위 스케줄러 (명석)
 │
 ├── physics/                 # 물리 엔진 (지용)
-│   ├── engine.ts            # 중력, 충돌, 회전, 라인 절단/클리어
+│   ├── matterEngine.ts      # Matter.js 엔진 초기화, 벽/바닥, 테트로미노 생성
+│   ├── matterState.ts       # 게임 상태 관리 (force 기반 이동, torque 회전)
+│   ├── matterLinecut.ts     # 면적 기반 라인 밀도 + Sutherland-Hodgman 절단
+│   ├── matterRenderer.ts    # Canvas 다각형 렌더링
+│   ├── engine.ts            # 그리드 기반 물리 (레거시, 테스트용)
 │   ├── engine.test.ts       # 물리 엔진 유닛 테스트
-│   ├── gameState.ts         # 게임 상태 관리 (순수 함수)
+│   ├── gameState.ts         # 그리드 기반 상태 관리 (레거시, 테스트용)
 │   └── gameState.test.ts    # 게임 상태 유닛 테스트
 │
 ├── metrics/                 # 메트릭 (지용)
@@ -363,18 +367,21 @@ npm test
 
 | 영역 | 테스트 수 | 내용 |
 |------|----------|------|
-| 물리 엔진 | 30개 | 중력, 충돌, 회전(CW/CCW), 90도 회전, 라인 절단, 클리어 |
-| 게임 상태 | 26개 | initState, nextTick, movePiece, hardDrop, holdPiece, softDrop, rotatePieceInState, snapRotateInState |
+| 물리 엔진 | 31개 | 중력, 충돌, 회전(CW/CCW), 90도 회전, 라인 절단, 클리어 |
+| 게임 상태 | 35개 | initState, nextTick, movePiece, hardDrop, holdPiece, softDrop, rotatePieceInState, snapRotateInState |
+| VDOM/Diff/Patch | 26개 | createVNode, diff 5케이스, patch, Component mount/update/unmount |
 | Flamegraph | 9개 | record, render, clear, mock data 검증 |
-| **합계** | **75개** | 전체 통과 |
+| **합계** | **101개** | 전체 통과 |
 
 ---
 
 ## 기술 스택
 
-- **TypeScript** — 외부 프레임워크 사용 금지, 순수 구현
+- **TypeScript** — UI 프레임워크 사용 금지, React 핵심 직접 구현
+- **Matter.js** — 2D 물리 엔진 (Box2D 수준 충돌/중력/마찰)
 - **Vitest** — 유닛 테스트
-- **Canvas API** — Flamegraph 시각화
+- **Canvas API** — 게임 보드 + Flamegraph 시각화
+- **Vite** — 번들러
 - **HTML/CSS** — 4탭 SPA 레이아웃
 
 ---
@@ -387,7 +394,38 @@ npm test
 | M2 | 라인 절단 및 클리어 | ✅ |
 | M3 | 게임 상태 관리 + Hold Piece | ✅ |
 | M4 | Flamegraph 메트릭 패널 | ✅ |
-| M5 | 4탭 SPA 전체 통합 | 🔲 코어 merge 대기 |
+| M5 | 4탭 SPA 전체 통합 | ✅ |
+| M6 | 순수 TS 물리 시도 → Matter.js 회귀 | ✅ (아래 참고) |
+
+---
+
+## 순수 TS 물리 엔진 시도 → Matter.js 회귀
+
+### 시도한 것
+
+SAT(분리축 정리) 기반 충돌 감지, impulse 반응, 수동 중력/마찰을 순수 TypeScript로 구현했습니다.
+10회 이상의 수정 사이클을 거쳤지만 3가지 근본 문제가 해결되지 않았습니다:
+
+| 문제 | 원인 | 시도한 해결 |
+|------|------|------------|
+| 블록 겹침 | SAT 충돌 해소 1~2회 반복으로는 불충분 | 보정 비율 조정, 반복 횟수 증가 |
+| 파편 미낙하 | clearCooldown 중 물리 skip, isStatic 판정 오류 | 쿨다운 중 파편만 물리 실행 |
+| 착지 오판 | 충돌 보정(위로 밀기)과 착지 판정(아래 체크) 상충 | 예측 거리 조정, lockTimer 리셋 제거 |
+
+### 교훈
+
+> **"바퀴를 재발명하지 말라"** — 물리 엔진은 수천 줄의 반복적 constraint solver가 필요합니다.
+> Matter.js(Box2D 수준)는 이를 검증된 방식으로 제공합니다.
+> 프로젝트의 핵심은 **custom React 구현**이므로, 물리는 검증된 라이브러리를 사용하고
+> React의 핵심(VDOM, Hooks, Fiber)을 직접 구현하는 데 집중했습니다.
+
+### 보존된 코드
+
+순수 TS 물리 시도 코드는 `.bak`, `.old`, `.legacy` 확장자로 보존되어 있습니다:
+- `engine2d.ts.bak` — SAT 충돌 감지, 중력, 벽 충돌
+- `notTetrisState.ts.bak` — 순수 함수 게임 상태 관리
+- `renderer.ts.bak` — Canvas 다각형 렌더링
+- `linecut.ts.bak` — Sutherland-Hodgman 다각형 절단
 
 ---
 
@@ -400,3 +438,4 @@ npm test
 5. **Batching 없으면 게임이 안 된다** — 이동+중력+회전 setState 3번이 렌더링 3번이면 버벅임
 6. **Fiber는 양보의 기술** — 키 입력(urgent)은 즉시, 메트릭(idle)은 여유있을 때
 7. **라인 절단이 React의 가치를 증명** — 복잡한 상태 변화를 선언적으로 처리할 수 있는 이유
+8. **바퀴를 재발명하지 말라** — 물리 엔진은 검증된 라이브러리를, React 핵심은 직접 구현을
