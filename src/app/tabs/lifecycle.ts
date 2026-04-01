@@ -304,35 +304,7 @@ function createFiberSection(): HTMLElement {
 }
 
 // ============================================================
-// 섹션 7: 물리 엔진 시도 (순수 TS → Matter.js)
-// ============================================================
-
-function createPhysicsTrialSection(): HTMLElement {
-  return createProblemSection({
-    num: 6,
-    title: '순수 TS 물리 vs Matter.js',
-    cause: 'SAT 충돌 해소를 직접 구현 →<br>블록 겹침, 파편 미낙하, 착지 오판이<br>10회 이상 수정에도 해결 안 됨',
-    solution: 'Matter.js 도입 (Box2D 수준 물리 엔진)<br>→ 충돌/중력/마찰이 한 번에 해결<br>→ <strong>"바퀴를 재발명하지 말라"</strong>는 교훈',
-    reversed: true,
-    visualHTML: `
-      <div class="learn-counter-demo">
-        <div class="learn-counter-box learn-counter-off">
-          <div class="learn-counter-label">순수 TS (직접 구현)</div>
-          <div class="learn-counter-detail">SAT + impulse + 수동 보정</div>
-          <div class="learn-counter-num" style="color:#f44;font-size:16px">겹침 · 떠있음 · 통과</div>
-        </div>
-        <div class="learn-counter-box learn-counter-on">
-          <div class="learn-counter-label">Matter.js</div>
-          <div class="learn-counter-detail">검증된 물리 엔진 (Box2D 수준)</div>
-          <div class="learn-counter-num" style="color:#00ff88;font-size:16px">안정적 충돌 · 중력 · 마찰</div>
-        </div>
-      </div>
-    `,
-  });
-}
-
-// ============================================================
-// 섹션 8: 실제 React와 비교
+// 섹션 7: 실제 React와 비교
 // ============================================================
 
 function createComparisonSection(): HTMLElement {
@@ -409,7 +381,6 @@ export function createLifecycleTab(): HTMLElement {
   container.appendChild(createMemoSection());
   container.appendChild(createHookOrderSection());
   container.appendChild(createFiberSection());
-  container.appendChild(createPhysicsTrialSection());
   container.appendChild(createComparisonSection());
 
   return container;
