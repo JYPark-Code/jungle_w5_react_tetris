@@ -61,9 +61,28 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
   if (state.isGameOver) return state;
   const safeDt = Math.min(dt, 0.05);
 
-  // 클리어 쿨다운 중이면 대기
+  // 클리어 쿨다운 중에도 파편 낙하 물리는 계속 실행
   if (state.clearCooldown > 0) {
-    return { ...state, clearCooldown: state.clearCooldown - safeDt };
+    let coolBodies = state.bodies.map(b =>
+      b.id === state.activeId ? b : applyGravity(b)
+    );
+    coolBodies = coolBodies.map(b =>
+      b.id === state.activeId ? b : integratePosition(b)
+    );
+    coolBodies = resolveBodyCollisions(coolBodies);
+    coolBodies = coolBodies.map(b =>
+      b.id === state.activeId ? b : applyWallConstraints(b)
+    );
+    // 파편 착지 → isStatic 전환
+    const coolStatics = coolBodies.filter(b => b.isStatic);
+    coolBodies = coolBodies.map(b => {
+      if (b.isStatic || b.id === state.activeId) return b;
+      if (checkLanding(b, coolStatics)) {
+        return { ...b, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 };
+      }
+      return b;
+    });
+    return { ...state, bodies: coolBodies, clearCooldown: state.clearCooldown - safeDt };
   }
 
   const dropSpeed = DROP_SPEED + (state.level - 1) * 7;

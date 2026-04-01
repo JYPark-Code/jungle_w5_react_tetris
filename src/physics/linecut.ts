@@ -53,7 +53,7 @@ export function checkLineDensity(
   const areas = new Array(rows).fill(0);
 
   for (const body of bodies) {
-    if (!body.isStatic || body.kind === 0) continue;
+    if (body.kind === 0) continue;  // isStatic 조건 제거 → 파편도 밀도 계산에 포함
     for (const part of body.parts) {
       const wv = getWorldVerts(part, body.position, body.angle);
       const minY = Math.min(...wv.map(v => v.y));
