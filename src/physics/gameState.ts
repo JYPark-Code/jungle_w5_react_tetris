@@ -97,7 +97,10 @@ function lockPiece(board: Board, piece: Tetromino): Board {
 
   for (const cell of cells) {
     if (cell.y >= 0 && cell.y < BOARD_ROWS && cell.x >= 0 && cell.x < BOARD_COLS) {
-      newBoard[cell.y][cell.x] = piece.color;
+      // 이미 채워진 셀 위에 덮어쓰지 않음 (겹침 방지)
+      if (newBoard[cell.y][cell.x] === null) {
+        newBoard[cell.y][cell.x] = piece.color;
+      }
     }
   }
 
@@ -127,11 +130,11 @@ export function nextTick(state: PhysicsState): PhysicsState {
   const piece = state.currentPiece;
   const movedPiece = applyGravity(piece, state.board);
 
-  // 블록이 이동하지 않았으면 착지한 것으로 판단
-  const isLanded =
-    movedPiece.x === piece.x &&
-    movedPiece.y === piece.y &&
-    movedPiece.vy === 0;
+  // 착지 판정: 바로 아래(1칸)에 충돌이 있는지 확인
+  const isLanded = checkCollision(
+    { ...piece, y: Math.floor(piece.y) + 1 },
+    state.board
+  );
 
   if (isLanded) {
     // 블록을 보드에 고정

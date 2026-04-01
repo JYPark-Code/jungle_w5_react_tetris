@@ -75,10 +75,11 @@ export function applyGravity(body: RigidBody, dt: number, gravity: number): Rigi
   if (body.isStatic) return body;
 
   const ANGULAR_DAMPING = 0.98; // 각속도 감쇠 — 자연스러운 회전 정지
+  const MAX_VY = 200; // 최대 낙하 속도 (px/s) — 장애물 건너뜀 방지
 
   const newVelocity: Vec2 = {
     x: body.velocity.x,
-    y: body.velocity.y + gravity * dt,
+    y: Math.min(body.velocity.y + gravity * dt, MAX_VY),
   };
 
   return {
