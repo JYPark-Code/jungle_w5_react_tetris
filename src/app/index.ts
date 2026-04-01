@@ -172,6 +172,10 @@ function gameLoop(timestamp: number): void {
   const ri = renderIndex++;
   const ts = performance.now();
   metricsStore.record({ componentName: 'GameLoop', duration: totalDuration, timestamp: ts, renderIndex: ri });
+  // 100프레임마다 데이터 확인 로그
+  if (ri % 100 === 0 && ri > 0) {
+    console.log('[Flamegraph]', metricsStore.entries.length, 'entries,', metricsStore.getStats().componentCounts);
+  }
 
   if (gameState.activeBody) {
     metricsStore.record({ componentName: 'Block', duration: totalDuration * 0.4, timestamp: ts, renderIndex: ri });
@@ -337,6 +341,9 @@ function initApp(): void {
     metricsStore.clear();
     refreshFlamegraph();
   });
+
+  // Flamegraph 구독 즉시 시작 (탭 전환 전에도 데이터 누적)
+  refreshFlamegraph();
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
