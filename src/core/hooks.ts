@@ -1,9 +1,11 @@
 // ============================================================
 // src/core/hooks.ts
 // 담당: 명석
-// 구현 항목: useState, useEffect, useMemo, BatchScheduler
+// 구현 항목: useState, useEffect, useMemo, BatchScheduler, FiberScheduler 연동
 // contracts.ts의 타입을 기준으로 구현합니다.
 // ============================================================
+
+import { fiberScheduler } from './scheduler';
 
 import type {
   CurrentComponent,
@@ -88,7 +90,9 @@ export const useState: UseStateFn = <T>(initialValue: T): UseStateTuple<T> => {
     if (Object.is(prev, next)) return;
 
     hookState.value = next;
-    batchScheduler.schedule(updateJob);
+    // fiberScheduler 연동: 키 입력 등 즉각 반응이 필요한 상태 변경은 'urgent'로 처리
+    // (발표 비교용) 기존 방식: batchScheduler.schedule(updateJob);
+    fiberScheduler.schedule(updateJob, 'urgent');
   };
 
   return [hookState.value as T, setState];
