@@ -73,6 +73,8 @@ export function initState(): PhysicsState {
     board: createEmptyBoard(),
     currentPiece: createRandomPiece(BOARD_COLS),
     nextPiece: createRandomPiece(BOARD_COLS),
+    heldPiece: null,
+    canHold: true,
     score: 0,
     level: 1,
     isGameOver: false,
@@ -155,6 +157,8 @@ export function nextTick(state: PhysicsState): PhysicsState {
       board: clearedBoard,
       currentPiece: isGameOver ? null : newCurrent,
       nextPiece: newNext,
+      heldPiece: state.heldPiece,
+      canHold: true, // 착지 시 hold 재사용 가능
       score: state.score + addScore,
       level: newLevel,
       isGameOver,
@@ -249,9 +253,74 @@ export function hardDrop(state: PhysicsState): PhysicsState {
     board: clearedBoard,
     currentPiece: isGameOver ? null : newCurrent,
     nextPiece: newNext,
+    heldPiece: state.heldPiece,
+    canHold: true, // 착지 시 hold 재사용 가능
     score: state.score + addScore,
     level: newLevel,
     isGameOver,
     linesCleared: totalLines,
+  };
+}
+
+// ------------------------------------------------------------
+// holdPiece: 블록 보관 (R키)
+// ------------------------------------------------------------
+
+/**
+ * 현재 블록을 보관함에 저장하고 교체한다.
+ *
+ * 동작 원리:
+ * 1. canHold가 false이면 무시한다 (착지 전 연속 사용 방지).
+ * 2. heldPiece가 null이면: currentPiece → held, nextPiece → current로 교체.
+ * 3. heldPiece가 있으면: currentPiece ↔ heldPiece 교체.
+ * 4. 교체 후 canHold = false로 설정 (착지 시 true로 복원).
+ * 5. 교체 후 새 currentPiece가 즉시 충돌하면 게임 오버.
+ */
+export function holdPiece(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver || !state.canHold) {
+    return state;
+  }
+
+  // 보관할 블록: 위치/속도를 초기화하여 저장
+  const pieceToHold: Tetromino = {
+    ...state.currentPiece,
+    x: Math.floor(BOARD_COLS / 2) - Math.floor(state.currentPiece.shape[0].length / 2),
+    y: 0,
+    angle: 0,
+    vx: 0,
+    vy: 0,
+    angularVelocity: 0,
+  };
+
+  let newCurrent: Tetromino | null;
+  let newNext = state.nextPiece;
+
+  if (state.heldPiece === null) {
+    // 보관함이 비어있으면: nextPiece를 current로
+    newCurrent = state.nextPiece;
+    newNext = createRandomPiece(BOARD_COLS);
+  } else {
+    // 보관함에 있으면: heldPiece ↔ currentPiece 교체
+    newCurrent = {
+      ...state.heldPiece,
+      x: Math.floor(BOARD_COLS / 2) - Math.floor(state.heldPiece.shape[0].length / 2),
+      y: 0,
+      angle: 0,
+      vx: 0,
+      vy: 0,
+      angularVelocity: 0,
+    };
+  }
+
+  // 교체 후 게임 오버 체크
+  const isGameOver = newCurrent ? checkCollision(newCurrent, state.board) : true;
+
+  return {
+    ...state,
+    currentPiece: isGameOver ? null : newCurrent,
+    nextPiece: newNext,
+    heldPiece: pieceToHold,
+    canHold: false, // 착지 전까지 재사용 불가
+    isGameOver,
   };
 }

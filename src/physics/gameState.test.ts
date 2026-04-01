@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initState, nextTick, movePiece, hardDrop } from './gameState';
+import { initState, nextTick, movePiece, hardDrop, holdPiece } from './gameState';
 import type { PhysicsState, Board, Tetromino } from '../../contracts';
 
 // 테스트용 빈 보드 생성
@@ -24,6 +24,8 @@ function createTestState(overrides: Partial<PhysicsState> = {}): PhysicsState {
     board: createEmptyBoard(),
     currentPiece: testPiece,
     nextPiece: { ...testPiece, x: 4, y: 0 },
+    heldPiece: null,
+    canHold: true,
     score: 0,
     level: 1,
     isGameOver: false,
@@ -43,6 +45,8 @@ describe('initState', () => {
     expect(state.level).toBe(1);
     expect(state.isGameOver).toBe(false);
     expect(state.linesCleared).toBe(0);
+    expect(state.heldPiece).toBeNull();
+    expect(state.canHold).toBe(true);
   });
 
   it('보드가 모두 비어있어야 한다', () => {
@@ -230,5 +234,92 @@ describe('hardDrop', () => {
     const originalBoard = state.board.map((row) => [...row]);
     hardDrop(state);
     expect(state.board).toEqual(originalBoard);
+  });
+
+  it('하드드롭 후 canHold이 true로 복원되어야 한다', () => {
+    const state = createTestState({ canHold: false });
+    const dropped = hardDrop(state);
+    expect(dropped.canHold).toBe(true);
+  });
+});
+
+describe('holdPiece', () => {
+  const iPiece: Tetromino = {
+    shape: [[1, 1, 1, 1]],
+    x: 3,
+    y: 2,
+    angle: 15,
+    vx: 1,
+    vy: 0.5,
+    angularVelocity: 10,
+    color: '#00f0f0',
+  };
+
+  it('보관함이 비어있으면 currentPiece를 보관하고 nextPiece를 current로 교체해야 한다', () => {
+    const state = createTestState();
+    const result = holdPiece(state);
+    expect(result.heldPiece).not.toBeNull();
+    expect(result.heldPiece!.color).toBe(state.currentPiece!.color);
+    // nextPiece가 current가 되었으므로 새로운 nextPiece가 생성됨
+    expect(result.currentPiece).not.toBeNull();
+  });
+
+  it('보관함에 블록이 있으면 currentPiece ↔ heldPiece 교체해야 한다', () => {
+    const state = createTestState({ heldPiece: iPiece });
+    const result = holdPiece(state);
+    // 기존 held(I블록)가 current로, 기존 current(O블록)가 held로
+    expect(result.heldPiece!.color).toBe('#ff0'); // O블록 색상
+    expect(result.currentPiece!.color).toBe('#00f0f0'); // I블록 색상
+  });
+
+  it('교체 후 canHold가 false가 되어야 한다', () => {
+    const state = createTestState();
+    const result = holdPiece(state);
+    expect(result.canHold).toBe(false);
+  });
+
+  it('canHold가 false이면 hold를 무시해야 한다 (연속 R키 방지)', () => {
+    const state = createTestState({ canHold: false });
+    const result = holdPiece(state);
+    expect(result).toBe(state); // 변경 없음
+  });
+
+  it('보관된 블록의 위치/속도가 초기화되어야 한다', () => {
+    const state = createTestState({
+      currentPiece: iPiece, // 위치/속도/각도가 있는 블록
+    });
+    const result = holdPiece(state);
+    expect(result.heldPiece!.y).toBe(0);
+    expect(result.heldPiece!.angle).toBe(0);
+    expect(result.heldPiece!.vx).toBe(0);
+    expect(result.heldPiece!.vy).toBe(0);
+    expect(result.heldPiece!.angularVelocity).toBe(0);
+  });
+
+  it('교체로 꺼낸 블록도 위치/속도가 초기화되어야 한다', () => {
+    const heldWithVelocity: Tetromino = { ...iPiece, vx: 5, vy: 3, angle: 90 };
+    const state = createTestState({ heldPiece: heldWithVelocity });
+    const result = holdPiece(state);
+    expect(result.currentPiece!.y).toBe(0);
+    expect(result.currentPiece!.angle).toBe(0);
+    expect(result.currentPiece!.vx).toBe(0);
+    expect(result.currentPiece!.vy).toBe(0);
+  });
+
+  it('게임 오버 상태에서는 hold를 무시해야 한다', () => {
+    const state = createTestState({ isGameOver: true });
+    const result = holdPiece(state);
+    expect(result).toBe(state);
+  });
+
+  it('착지 후 canHold이 true로 복원되어야 한다', () => {
+    // hold 사용 → canHold=false → 착지 → canHold=true
+    const state = createTestState();
+    const held = holdPiece(state);
+    expect(held.canHold).toBe(false);
+
+    // 착지 시뮬레이션 (hardDrop)
+    const dropped = hardDrop(held);
+    expect(dropped.canHold).toBe(true);
   });
 });

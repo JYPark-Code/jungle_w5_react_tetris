@@ -128,6 +128,8 @@ export interface PhysicsState {
   board: Board;
   currentPiece: Tetromino | null;
   nextPiece: Tetromino | null;
+  heldPiece: Tetromino | null;   // R키로 보관한 블록
+  canHold: boolean;               // 착지 전 재사용 방지
   score: number;
   level: number;
   isGameOver: boolean;
@@ -150,6 +152,15 @@ export type CutPieceAtLineFn = (
 export type ClearLinesFn = (
   board: Board
 ) => { board: Board; linesCleared: number };
+
+/**
+ * 현재 블록을 보관함에 저장 (R키)
+ * - heldPiece 없으면: currentPiece → held, nextPiece → current
+ * - heldPiece 있으면: currentPiece ↔ heldPiece 교체
+ * - 착지 전 연속 사용 불가 (canHold = false)
+ * - 새 블록 착지 시 canHold = true 로 초기화
+ */
+export type HoldPieceFn = (state: PhysicsState) => PhysicsState;
 
 // ------------------------------------------------------------
 // [지용님 담당] Flamegraph 메트릭
