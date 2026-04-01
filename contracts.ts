@@ -125,7 +125,8 @@ export interface Tetromino {
 export type Board = (string | null)[][];
 
 export interface PhysicsState {
-  board: Board;
+  board: Board;              // lockedPieces에서 매 프레임 재계산 (렌더링/충돌용)
+  lockedPieces: Tetromino[]; // 고정된 블록 목록 (물리 개체로 유지)
   currentPiece: Tetromino | null;
   nextPiece: Tetromino | null;
   heldPiece: Tetromino | null;   // R키로 보관한 블록

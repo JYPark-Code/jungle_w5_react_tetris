@@ -1,76 +1,121 @@
 // ============================================================
-// gameState.ts — 게임 상태 관리
-// 모든 함수는 순수 함수로, state를 직접 변경하지 않고 새 state를 반환한다.
+// gameState.ts — 게임 상태 관리 (lockedPieces 기반)
+// 고정된 블록이 개체 정보를 유지하여 중력 재적용 가능
 // ============================================================
 
 import type { PhysicsState, Tetromino, Board, TetrominoShape, RotateDirection } from '../../contracts';
 import { applyGravity, checkCollision, clearLines, getRotatedCells, rotatePiece as engineRotate, snapRotate as engineSnapRotate } from './engine';
 
-// ------------------------------------------------------------
 // 테트로미노 정의
-// ------------------------------------------------------------
-
-/** 7가지 표준 테트로미노 shape 정의 */
 const SHAPES: { shape: TetrominoShape; color: string }[] = [
-  { shape: [[1, 1, 1, 1]], color: '#00f0f0' },                    // I
-  { shape: [[1, 0], [1, 0], [1, 1]], color: '#0000f0' },          // J
-  { shape: [[0, 1], [0, 1], [1, 1]], color: '#f0a000' },          // L
-  { shape: [[1, 1], [1, 1]], color: '#f0f000' },                  // O
-  { shape: [[0, 1, 1], [1, 1, 0]], color: '#00f000' },            // S
-  { shape: [[1, 1, 0], [0, 1, 1]], color: '#f00000' },            // Z
-  { shape: [[0, 1, 0], [1, 1, 1]], color: '#a000f0' },            // T
+  { shape: [[1, 1, 1, 1]], color: '#00f0f0' },
+  { shape: [[1, 0], [1, 0], [1, 1]], color: '#0000f0' },
+  { shape: [[0, 1], [0, 1], [1, 1]], color: '#f0a000' },
+  { shape: [[1, 1], [1, 1]], color: '#f0f000' },
+  { shape: [[0, 1, 1], [1, 1, 0]], color: '#00f000' },
+  { shape: [[1, 1, 0], [0, 1, 1]], color: '#f00000' },
+  { shape: [[0, 1, 0], [1, 1, 1]], color: '#a000f0' },
 ];
 
-/**
- * 랜덤 테트로미노를 생성한다.
- * 보드 상단 중앙에 배치하고, 초기 속도는 0이다.
- */
 function createRandomPiece(boardCols: number): Tetromino {
   const idx = Math.floor(Math.random() * SHAPES.length);
   const { shape, color } = SHAPES[idx];
   return {
-    shape,
-    color,
+    shape, color,
     x: Math.floor(boardCols / 2) - Math.floor(shape[0].length / 2),
-    y: 0,
-    angle: 0,
-    vx: 0,
-    vy: 0,
-    angularVelocity: 0,
+    y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
   };
 }
-
-// ------------------------------------------------------------
-// 보드 상수
-// ------------------------------------------------------------
 
 const BOARD_ROWS = 20;
 const BOARD_COLS = 10;
 
-/**
- * 빈 보드를 생성한다.
- */
 function createEmptyBoard(): Board {
-  return Array.from({ length: BOARD_ROWS }, () =>
-    Array(BOARD_COLS).fill(null)
-  );
+  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
 }
 
 // ------------------------------------------------------------
-// initState: 초기 게임 상태 반환
+// lockedPieces → board 재계산
 // ------------------------------------------------------------
 
-/**
- * 게임의 초기 상태를 생성한다.
- *
- * 동작 원리:
- * 1. 빈 보드를 만든다.
- * 2. 현재 블록과 다음 블록을 랜덤 생성한다.
- * 3. 점수, 레벨, 라인 클리어 수를 0으로 초기화한다.
- */
+function buildBoardFromPieces(pieces: Tetromino[]): Board {
+  const board = createEmptyBoard();
+  for (const piece of pieces) {
+    const cells = getRotatedCells(piece);
+    for (const cell of cells) {
+      if (cell.y >= 0 && cell.y < BOARD_ROWS && cell.x >= 0 && cell.x < BOARD_COLS) {
+        if (board[cell.y][cell.x] === null) {
+          board[cell.y][cell.x] = piece.color;
+        }
+      }
+    }
+  }
+  return board;
+}
+
+// ------------------------------------------------------------
+// 지지대 확인: 아래에 바닥 또는 다른 블록이 있는지
+// ------------------------------------------------------------
+
+function isUnsupported(piece: Tetromino, allPieces: Tetromino[]): boolean {
+  const otherPieces = allPieces.filter((p) => p !== piece);
+  const boardWithoutSelf = buildBoardFromPieces(otherPieces);
+  const below = { ...piece, y: piece.y + 1 };
+  return !checkCollision(below, boardWithoutSelf);
+}
+
+// ------------------------------------------------------------
+// 라인 클리어 후 lockedPieces에서 제거된 셀 삭제
+// ------------------------------------------------------------
+
+function removeLineFromPieces(
+  pieces: Tetromino[],
+  beforeBoard: Board,
+  afterBoard: Board
+): Tetromino[] {
+  const clearedRows: number[] = [];
+  for (let r = 0; r < BOARD_ROWS; r++) {
+    const beforeFull = beforeBoard[r].filter((c) => c !== null).length >= Math.floor(BOARD_COLS * 0.9);
+    const afterEmpty = afterBoard[r].every((c) => c === null);
+    if (beforeFull && afterEmpty) clearedRows.push(r);
+  }
+
+  if (clearedRows.length === 0) return pieces;
+
+  const result: Tetromino[] = [];
+  for (const piece of pieces) {
+    const cells = getRotatedCells(piece);
+    const remainingCells = cells.filter((c) => !clearedRows.includes(c.y));
+
+    if (remainingCells.length === 0) continue;
+    if (remainingCells.length === cells.length) { result.push(piece); continue; }
+
+    const minX = Math.min(...remainingCells.map((c) => c.x));
+    const minY = Math.min(...remainingCells.map((c) => c.y));
+    const maxX = Math.max(...remainingCells.map((c) => c.x));
+    const maxY = Math.max(...remainingCells.map((c) => c.y));
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    const shape: number[][] = Array.from({ length: height }, () => Array(width).fill(0));
+    for (const cell of remainingCells) {
+      shape[cell.y - minY][cell.x - minX] = 1;
+    }
+
+    result.push({ ...piece, shape, x: minX, y: minY, angle: 0, vy: 0, vx: 0 });
+  }
+
+  return result;
+}
+
+// ------------------------------------------------------------
+// initState
+// ------------------------------------------------------------
+
 export function initState(): PhysicsState {
   return {
     board: createEmptyBoard(),
+    lockedPieces: [],
     currentPiece: createRandomPiece(BOARD_COLS),
     nextPiece: createRandomPiece(BOARD_COLS),
     heldPiece: null,
@@ -83,85 +128,59 @@ export function initState(): PhysicsState {
 }
 
 // ------------------------------------------------------------
-// 블록을 보드에 고정(lock)
+// nextTick
 // ------------------------------------------------------------
 
-/**
- * 현재 블록의 셀을 보드에 색상으로 기록한다.
- * 회전이 적용된 실제 좌표를 사용한다.
- */
-function lockPiece(board: Board, piece: Tetromino): Board {
-  // 보드 깊은 복사
-  const newBoard = board.map((row) => [...row]);
-  const cells = getRotatedCells(piece);
+export function nextTick(state: PhysicsState): PhysicsState {
+  if (state.isGameOver || !state.currentPiece) return state;
 
-  for (const cell of cells) {
-    if (cell.y >= 0 && cell.y < BOARD_ROWS && cell.x >= 0 && cell.x < BOARD_COLS) {
-      // 이미 채워진 셀 위에 덮어쓰지 않음 (겹침 방지)
-      if (newBoard[cell.y][cell.x] === null) {
-        newBoard[cell.y][cell.x] = piece.color;
-      }
+  // === 1단계: lockedPieces 중력 적용 ===
+  const updatedLockedPieces: Tetromino[] = [];
+  for (const p of state.lockedPieces) {
+    if (isUnsupported(p, state.lockedPieces)) {
+      const boardForPhysics = buildBoardFromPieces(state.lockedPieces.filter((pp) => pp !== p));
+      const fallen = applyGravity(p, boardForPhysics);
+      updatedLockedPieces.push(fallen);
+    } else {
+      updatedLockedPieces.push(p);
     }
   }
 
-  return newBoard;
-}
+  const updatedBoard = buildBoardFromPieces(updatedLockedPieces);
 
-// ------------------------------------------------------------
-// nextTick: 매 프레임 호출
-// ------------------------------------------------------------
-
-/**
- * 게임 루프의 한 프레임을 처리한다.
- *
- * 동작 원리:
- * 1. 게임 오버 상태면 그대로 반환한다.
- * 2. 현재 블록에 중력을 적용한다.
- * 3. 중력 적용 후 블록이 이동하지 않았으면(착지) 보드에 고정한다.
- * 4. 라인 클리어를 수행한다.
- * 5. 다음 블록을 현재 블록으로 교체하고 새 다음 블록을 생성한다.
- * 6. 새 블록이 즉시 충돌하면 게임 오버다.
- */
-export function nextTick(state: PhysicsState): PhysicsState {
-  if (state.isGameOver || !state.currentPiece) {
-    return state;
-  }
-
+  // === 2단계: currentPiece 낙하 ===
   const piece = state.currentPiece;
-  const movedPiece = applyGravity(piece, state.board);
+  const movedPiece = applyGravity(piece, updatedBoard);
 
-  // 착지 판정: vy=0이고 아래로 이동 시 충돌이 있을 때만
   const isLanded =
     movedPiece.vy === 0 &&
     movedPiece.y === piece.y &&
-    checkCollision({ ...movedPiece, y: movedPiece.y + 1 }, state.board);
+    checkCollision({ ...movedPiece, y: movedPiece.y + 1 }, updatedBoard);
 
   if (isLanded) {
-    // 블록을 보드에 고정
-    const lockedBoard = lockPiece(state.board, piece);
-    // 라인 클리어
+    const newLockedPieces = [...updatedLockedPieces, piece];
+    const lockedBoard = buildBoardFromPieces(newLockedPieces);
     const { board: clearedBoard, linesCleared } = clearLines(lockedBoard);
+    const finalLockedPieces = removeLineFromPieces(newLockedPieces, lockedBoard, clearedBoard);
 
-    // 점수 계산: 라인 수에 따른 점수 (1:100, 2:300, 3:500, 4:800)
     const scoreTable = [0, 100, 300, 500, 800];
     const addScore = (scoreTable[linesCleared] ?? linesCleared * 200) * state.level;
-
     const totalLines = state.linesCleared + linesCleared;
     const newLevel = Math.floor(totalLines / 10) + 1;
 
-    // 다음 블록을 현재로 교체
     const newCurrent = state.nextPiece;
     const newNext = createRandomPiece(BOARD_COLS);
-
-    // 새 블록이 즉시 충돌하면 게임 오버
-    const isGameOver = newCurrent ? checkCollision(newCurrent, clearedBoard) : true;
+    const isGameOver = newCurrent
+      ? checkCollision({ ...newCurrent, y: 0 }, clearedBoard)
+      : true;
 
     return {
       board: clearedBoard,
+      lockedPieces: finalLockedPieces,
       currentPiece: isGameOver ? null : newCurrent,
       nextPiece: newNext,
       heldPiece: state.heldPiece,
-      canHold: true, // 착지 시 hold 재사용 가능
+      canHold: true,
       score: state.score + addScore,
       level: newLevel,
       isGameOver,
@@ -169,65 +188,35 @@ export function nextTick(state: PhysicsState): PhysicsState {
     };
   }
 
-  // 아직 낙하 중
   return {
     ...state,
+    board: updatedBoard,
+    lockedPieces: updatedLockedPieces,
     currentPiece: movedPiece,
   };
 }
 
 // ------------------------------------------------------------
-// movePiece: 블록 좌우 이동
+// movePiece
 // ------------------------------------------------------------
 
-/**
- * 블록을 좌우로 이동시킨다.
- *
- * 동작 원리:
- * 1. direction이 'left'이면 x-1, 'right'이면 x+1로 이동한다.
- * 2. 이동 후 충돌이 발생하면 이동하지 않는다.
- */
-export function movePiece(
-  state: PhysicsState,
-  direction: 'left' | 'right'
-): PhysicsState {
+export function movePiece(state: PhysicsState, direction: 'left' | 'right'): PhysicsState {
   if (!state.currentPiece || state.isGameOver) return state;
-
   const dx = direction === 'left' ? -1 : 1;
-  const moved: Tetromino = {
-    ...state.currentPiece,
-    x: state.currentPiece.x + dx,
-  };
-
-  if (checkCollision(moved, state.board)) {
-    return state; // 충돌 시 이동 무시
-  }
-
-  return {
-    ...state,
-    currentPiece: moved,
-  };
+  const moved: Tetromino = { ...state.currentPiece, x: state.currentPiece.x + dx };
+  if (checkCollision(moved, state.board)) return state;
+  return { ...state, currentPiece: moved };
 }
 
 // ------------------------------------------------------------
-// hardDrop: 블록 즉시 낙하
+// hardDrop
 // ------------------------------------------------------------
 
-/**
- * 블록을 즉시 바닥까지 낙하시킨다.
- *
- * 동작 원리:
- * 1. 블록의 y를 1씩 증가시키며 충돌할 때까지 반복한다.
- * 2. 충돌 직전 위치에 블록을 배치한다.
- * 3. 보드에 고정하고 라인 클리어를 수행한다.
- */
 export function hardDrop(state: PhysicsState): PhysicsState {
   if (!state.currentPiece || state.isGameOver) return state;
-
-  let piece = { ...state.currentPiece, angle: state.currentPiece.angle };
+  let piece = { ...state.currentPiece };
   let dropDistance = 0;
 
-  // 충돌할 때까지 1칸씩 내려감
   while (true) {
     const next: Tetromino = { ...piece, y: piece.y + 1 };
     if (checkCollision(next, state.board)) break;
@@ -235,29 +224,27 @@ export function hardDrop(state: PhysicsState): PhysicsState {
     dropDistance++;
   }
 
-  // 보드에 고정
-  const lockedBoard = lockPiece(state.board, piece);
+  const newLockedPieces = [...state.lockedPieces, piece];
+  const lockedBoard = buildBoardFromPieces(newLockedPieces);
   const { board: clearedBoard, linesCleared } = clearLines(lockedBoard);
+  const finalLockedPieces = removeLineFromPieces(newLockedPieces, lockedBoard, clearedBoard);
 
   const scoreTable = [0, 100, 300, 500, 800];
-  const addScore =
-    ((scoreTable[linesCleared] ?? linesCleared * 200) * state.level) +
-    dropDistance * 2; // 하드드롭 보너스
-
+  const addScore = ((scoreTable[linesCleared] ?? linesCleared * 200) * state.level) + dropDistance * 2;
   const totalLines = state.linesCleared + linesCleared;
   const newLevel = Math.floor(totalLines / 10) + 1;
 
   const newCurrent = state.nextPiece;
   const newNext = createRandomPiece(BOARD_COLS);
-
   const isGameOver = newCurrent ? checkCollision(newCurrent, clearedBoard) : true;
 
   return {
     board: clearedBoard,
+    lockedPieces: finalLockedPieces,
     currentPiece: isGameOver ? null : newCurrent,
     nextPiece: newNext,
     heldPiece: state.heldPiece,
-    canHold: true, // 착지 시 hold 재사용 가능
+    canHold: true,
     score: state.score + addScore,
     level: newLevel,
     isGameOver,
@@ -266,56 +253,32 @@ export function hardDrop(state: PhysicsState): PhysicsState {
 }
 
 // ------------------------------------------------------------
-// holdPiece: 블록 보관 (R키)
+// holdPiece
 // ------------------------------------------------------------
 
-/**
- * 현재 블록을 보관함에 저장하고 교체한다.
- *
- * 동작 원리:
- * 1. canHold가 false이면 무시한다 (착지 전 연속 사용 방지).
- * 2. heldPiece가 null이면: currentPiece → held, nextPiece → current로 교체.
- * 3. heldPiece가 있으면: currentPiece ↔ heldPiece 교체.
- * 4. 교체 후 canHold = false로 설정 (착지 시 true로 복원).
- * 5. 교체 후 새 currentPiece가 즉시 충돌하면 게임 오버.
- */
 export function holdPiece(state: PhysicsState): PhysicsState {
-  if (!state.currentPiece || state.isGameOver || !state.canHold) {
-    return state;
-  }
+  if (!state.currentPiece || state.isGameOver || !state.canHold) return state;
 
-  // 보관할 블록: 위치/속도를 초기화하여 저장
   const pieceToHold: Tetromino = {
     ...state.currentPiece,
     x: Math.floor(BOARD_COLS / 2) - Math.floor(state.currentPiece.shape[0].length / 2),
-    y: 0,
-    angle: 0,
-    vx: 0,
-    vy: 0,
-    angularVelocity: 0,
+    y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
   };
 
   let newCurrent: Tetromino | null;
   let newNext = state.nextPiece;
 
   if (state.heldPiece === null) {
-    // 보관함이 비어있으면: nextPiece를 current로
     newCurrent = state.nextPiece;
     newNext = createRandomPiece(BOARD_COLS);
   } else {
-    // 보관함에 있으면: heldPiece ↔ currentPiece 교체
     newCurrent = {
       ...state.heldPiece,
       x: Math.floor(BOARD_COLS / 2) - Math.floor(state.heldPiece.shape[0].length / 2),
-      y: 0,
-      angle: 0,
-      vx: 0,
-      vy: 0,
-      angularVelocity: 0,
+      y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
     };
   }
 
-  // 교체 후 게임 오버 체크
   const isGameOver = newCurrent ? checkCollision(newCurrent, state.board) : true;
 
   return {
@@ -323,88 +286,34 @@ export function holdPiece(state: PhysicsState): PhysicsState {
     currentPiece: isGameOver ? null : newCurrent,
     nextPiece: newNext,
     heldPiece: pieceToHold,
-    canHold: false, // 착지 전까지 재사용 불가
+    canHold: false,
     isGameOver,
   };
 }
 
 // ------------------------------------------------------------
-// rotatePieceInState: 물리 기반 자유 회전 (Q/E키)
+// rotatePieceInState / snapRotateInState / softDrop
 // ------------------------------------------------------------
 
-/**
- * 블록에 회전 충격량을 가한다 (360도 자유 회전).
- * Q키: 반시계방향(ccw), E키: 시계방향(cw).
- *
- * 동작 원리:
- * 1. engine의 rotatePiece를 호출하여 angularVelocity에 충격량을 더한다.
- * 2. 실제 angle 변화는 매 프레임 applyGravity에서 누적 적용된다.
- * 3. 마찰에 의해 자연스럽게 감속한다.
- */
-export function rotatePieceInState(
-  state: PhysicsState,
-  direction: RotateDirection
-): PhysicsState {
+export function rotatePieceInState(state: PhysicsState, direction: RotateDirection): PhysicsState {
   if (!state.currentPiece || state.isGameOver) return state;
-
-  return {
-    ...state,
-    currentPiece: engineRotate(state.currentPiece, direction),
-  };
+  return { ...state, currentPiece: engineRotate(state.currentPiece, direction) };
 }
 
-// ------------------------------------------------------------
-// snapRotateInState: 90도 즉시 회전 (↑키)
-// ------------------------------------------------------------
-
-/**
- * 블록을 90도 즉시 회전시킨다 (전통 테트리스 스타일).
- * 충돌 시 회전을 무시한다.
- */
 export function snapRotateInState(state: PhysicsState): PhysicsState {
   if (!state.currentPiece || state.isGameOver) return state;
-
   const rotated = engineSnapRotate(state.currentPiece, state.board);
-
-  // 회전이 무시된 경우 (충돌) 원본 반환
   if (rotated === state.currentPiece) return state;
-
-  return {
-    ...state,
-    currentPiece: rotated,
-  };
+  return { ...state, currentPiece: rotated };
 }
 
-// ------------------------------------------------------------
-// softDrop: 소프트 드롭 (↓키)
-// ------------------------------------------------------------
-
-/**
- * 블록의 낙하 속도를 일시적으로 높인다 (↓키).
- *
- * 동작 원리:
- * 1. vy에 소프트 드롭 가속도(1.0)를 더한다.
- * 2. 충돌 시 이동하지 않는다.
- * 3. 소프트 드롭 거리에 비례한 보너스 점수(1점/칸)를 추가한다.
- */
 export function softDrop(state: PhysicsState): PhysicsState {
   if (!state.currentPiece || state.isGameOver) return state;
-
-  const SOFT_DROP_SPEED = 1.0;
-
   const dropped: Tetromino = {
     ...state.currentPiece,
-    y: state.currentPiece.y + SOFT_DROP_SPEED,
-    vy: SOFT_DROP_SPEED,
+    y: state.currentPiece.y + 1,
+    vy: 1,
   };
-
-  if (checkCollision(dropped, state.board)) {
-    return state;
-  }
-
-  return {
-    ...state,
-    currentPiece: dropped,
-    score: state.score + 1, // 소프트 드롭 보너스
-  };
+  if (checkCollision(dropped, state.board)) return state;
+  return { ...state, currentPiece: dropped, score: state.score + 1 };
 }

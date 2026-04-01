@@ -115,7 +115,7 @@ export const applyGravity: ApplyGravityFn = (
   piece: Tetromino,
   board: Board
 ): Tetromino => {
-  const GRAVITY = 0.05;
+  const GRAVITY = 0.15;  // 회전 기능이 체감되는 속도
   const MAX_VY = 1.0;
   const FRICTION = 0.9;
   const ANGULAR_FRICTION = 0.85;
@@ -304,10 +304,12 @@ export const clearLines: ClearLinesFn = (
 ): { board: Board; linesCleared: number } => {
   const cols = board[0].length;
 
-  // 완성되지 않은 행만 남긴다
-  const remainingRows = board.filter(
-    (row) => !row.every((cell) => cell !== null)
-  );
+  // 90% 이상 채워진 행을 클리어 (기울어진 블록 허용)
+  const CLEAR_THRESHOLD = 0.9;
+  const remainingRows = board.filter((row) => {
+    const filledCount = row.filter((cell) => cell !== null).length;
+    return filledCount < Math.floor(row.length * CLEAR_THRESHOLD);
+  });
 
   const linesCleared = board.length - remainingRows.length;
 

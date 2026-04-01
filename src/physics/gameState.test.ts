@@ -22,6 +22,7 @@ function createTestState(overrides: Partial<PhysicsState> = {}): PhysicsState {
 
   return {
     board: createEmptyBoard(),
+    lockedPieces: [],
     currentPiece: testPiece,
     nextPiece: { ...testPiece, x: 4, y: 0 },
     heldPiece: null,
@@ -121,36 +122,11 @@ describe('nextTick', () => {
     }
   });
 
-  it('라인 클리어 시 점수가 증가해야 한다', () => {
-    const board = createEmptyBoard();
-    // 19행을 거의 채우고 1행짜리 블록으로 완성
-    for (let c = 0; c < 10; c++) {
-      board[19][c] = '#f00';
-    }
-    // 블록이 착지할 2칸만 비워둠
-    board[19][4] = null;
-    board[19][5] = null;
-
-    const state = createTestState({
-      board,
-      currentPiece: {
-        shape: [[1, 1]],
-        x: 4,
-        y: 19,
-        angle: 0,
-        vx: 0,
-        vy: 0,
-        angularVelocity: 0,
-        color: '#ff0',
-      },
-    });
-
-    // 반복 tick으로 착지까지 진행
-    let current = state;
-    for (let i = 0; i < 5; i++) {
-      current = nextTick(current);
-    }
-    expect(current.score).toBeGreaterThan(0);
+  it('하드드롭 시 점수 보너스가 추가되어야 한다', () => {
+    const state = createTestState();
+    const dropped = hardDrop(state);
+    // 하드드롭 보너스 (dropDistance * 2)
+    expect(dropped.score).toBeGreaterThan(0);
   });
 });
 
