@@ -35,6 +35,8 @@ let isPaused = false;
 let animFrameId: number | null = null;
 let renderIndex = 0;
 let lastTimestamp = 0;
+const pressedKeys = new Set<string>();
+let moveInterval: ReturnType<typeof setInterval> | null = null;
 let prevBodiesCount = 0;
 let prevScore = 0;
 let prevNextColor = '';
@@ -210,20 +212,38 @@ function togglePause(): void {
 }
 
 // ============================================================
-// 키보드 입력 처리
+// 키보드 입력 처리 (key repeat 지원)
 // ============================================================
+
+/** 좌우 이동 실행 (key repeat용) */
+function executeMoveKeys(): void {
+  if (!isRunning || isPaused || gameState.isGameOver) return;
+  if (pressedKeys.has('ArrowLeft')) {
+    gameState = moveActive(gameState, 'left');
+  }
+  if (pressedKeys.has('ArrowRight')) {
+    gameState = moveActive(gameState, 'right');
+  }
+}
 
 function handleKeyDown(e: KeyboardEvent): void {
   if (!isRunning || isPaused || gameState.isGameOver) return;
 
   switch (e.key) {
     case 'ArrowLeft':
-      e.preventDefault();
-      gameState = moveActive(gameState, 'left');
-      break;
     case 'ArrowRight':
       e.preventDefault();
-      gameState = moveActive(gameState, 'right');
+      if (pressedKeys.has(e.key)) return; // OS repeat 방지
+      pressedKeys.add(e.key);
+      // 즉시 1번 이동
+      gameState = moveActive(gameState, e.key === 'ArrowLeft' ? 'left' : 'right');
+      // 150ms 후 repeat 시작 → 50ms 간격 반복
+      if (moveInterval) clearInterval(moveInterval);
+      setTimeout(() => {
+        if (pressedKeys.has('ArrowLeft') || pressedKeys.has('ArrowRight')) {
+          moveInterval = setInterval(executeMoveKeys, 50);
+        }
+      }, 150);
       break;
     case 'ArrowUp':
       e.preventDefault();
@@ -249,6 +269,16 @@ function handleKeyDown(e: KeyboardEvent): void {
     case 'R':
       gameState = holdPiece(gameState);
       break;
+  }
+}
+
+function handleKeyUp(e: KeyboardEvent): void {
+  pressedKeys.delete(e.key);
+  if (!pressedKeys.has('ArrowLeft') && !pressedKeys.has('ArrowRight')) {
+    if (moveInterval) {
+      clearInterval(moveInterval);
+      moveInterval = null;
+    }
   }
 }
 
@@ -292,6 +322,7 @@ function initApp(): void {
   switchTab(getCurrentTab());
   window.addEventListener('hashchange', () => switchTab(getCurrentTab()));
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
 
   // 버튼 이벤트
   document.getElementById('start-btn')?.addEventListener('click', startGame);

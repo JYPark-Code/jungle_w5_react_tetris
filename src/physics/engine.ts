@@ -153,8 +153,20 @@ export const applyGravity: ApplyGravityFn = (
 
   // 낙하 충돌 체크 (회전 제외, 위치만)
   if (checkCollision(moved, board)) {
+    // 충돌 직전 최대 y 위치를 찾아서 정확한 착지 위치 반환
+    let landY = piece.y;
+    const step = 0.05;
+    while (true) {
+      const testY = landY + step;
+      if (testY >= newY) break;
+      const test: Tetromino = { ...piece, y: testY, angle: safeAngle };
+      if (checkCollision(test, board)) break;
+      landY = testY;
+    }
+
     return {
       ...piece,
+      y: landY,
       angle: safeAngle,
       angularVelocity: safeAngularVelocity,
       vx: 0,
