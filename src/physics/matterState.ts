@@ -163,7 +163,7 @@ export function updateMatter(
       linesCleared: newLinesCleared,
       level: newLevel,
       isCutting: true,
-      cuttingTimer: 0.3,
+      cuttingTimer: 1.5,  // 파편이 충분히 정착할 시간 확보
     };
   } else if (state.isCutting) {
     const newTimer = state.cuttingTimer - dt;

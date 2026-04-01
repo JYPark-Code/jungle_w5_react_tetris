@@ -1,4 +1,5 @@
 import Matter from 'matter-js';
+import { CELL_SIZE } from './matterEngine';
 
 /**
  * 원본 linearea[i] > 1024 * linecleartreshold 대응
@@ -67,17 +68,19 @@ export function removeLine(
 ): void {
   const lineTop = row * cellSize;
   const lineBottom = lineTop + cellSize;
+
+  // isActive=true인 블록(현재 조작 중)은 제외 — 핵심 버그 수정
   const bodies = Matter.Composite.allBodies(engine.world)
-    .filter(b => !b.isStatic && (b as any).kind);
+    .filter(b => !b.isStatic && (b as any).kind && !(b as any).isActive);
 
   for (const body of bodies) {
-    // compound body: parts[0]=parent, parts[1..]=실제 셀
-    const parts = body.parts.length > 1 ? body.parts.slice(1) : [body];
-    const bodyVerts = parts.flatMap(p => Array.from(p.vertices));
+    const allParts = body.parts.length > 1 ? body.parts.slice(1) : [body];
+    const bodyVerts = allParts.flatMap(p => Array.from(p.vertices));
 
     const minY = Math.min(...bodyVerts.map(v => v.y));
     const maxY = Math.max(...bodyVerts.map(v => v.y));
 
+    // 클리어 라인과 겹치지 않으면 skip
     if (maxY <= lineTop || minY >= lineBottom) continue;
 
     const kind = (body as any).kind;
@@ -87,44 +90,44 @@ export function removeLine(
     Matter.Composite.remove(engine.world, body);
 
     // 각 part별로 위쪽 조각 재생성
-    for (const part of parts) {
+    for (const part of allParts) {
       const partVerts = Array.from(part.vertices);
       const partMinY = Math.min(...partVerts.map(v => v.y));
       const partMaxY = Math.max(...partVerts.map(v => v.y));
 
       if (partMaxY <= lineTop) {
-        // 완전히 위에 있음 → 개별 body로 재생성
+        // 완전히 클리어 라인 위 → Bodies.rectangle로 정확하게 재생성
         const center = centroid(partVerts);
-        const localVerts = partVerts.map(v => ({ x: v.x - center.x, y: v.y - center.y }));
-        const newPart = Matter.Bodies.fromVertices(center.x, center.y, [localVerts], {
-          isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3,
-        });
-        if (newPart) {
-          (newPart as any).kind = kind;
-          (newPart as any).color = color;
-          Matter.Body.setPosition(newPart, center);
-          Matter.Body.setVelocity(newPart, { x: 0, y: 0 });
-          Matter.Composite.add(engine.world, newPart);
-        }
+        const newCell = Matter.Bodies.rectangle(
+          center.x, center.y, CELL_SIZE, CELL_SIZE,
+          { angle: body.angle, isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3 }
+        );
+        (newCell as any).kind = kind;
+        (newCell as any).color = color;
+        Matter.Body.setVelocity(newCell, { x: 0, y: 0 });
+        Matter.Composite.add(engine.world, newCell);
+
       } else if (partMinY < lineTop && partMaxY > lineTop) {
-        // 클리어 라인에 걸침 → 위쪽만 클리핑
+        // 클리어 라인에 걸침 → 위쪽 클리핑 후 rectangle로 재생성
         const aboveVerts = clipVertsAboveLine(partVerts, lineTop);
         if (aboveVerts.length >= 3) {
           const center = centroid(aboveVerts);
-          const localVerts = aboveVerts.map(v => ({ x: v.x - center.x, y: v.y - center.y }));
-          const newPart = Matter.Bodies.fromVertices(center.x, center.y, [localVerts], {
-            isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3,
-          });
-          if (newPart) {
-            (newPart as any).kind = kind;
-            (newPart as any).color = color;
-            Matter.Body.setPosition(newPart, center);
-            Matter.Body.setVelocity(newPart, { x: 0, y: 0 });
-            Matter.Composite.add(engine.world, newPart);
+          const w = Math.max(...aboveVerts.map(v => v.x)) - Math.min(...aboveVerts.map(v => v.x));
+          const h = lineTop - partMinY;
+          // 충분한 크기일 때만 재생성 (너무 작은 조각 방지)
+          if (w > 2 && h > 2) {
+            const newCell = Matter.Bodies.rectangle(
+              center.x, center.y, Math.max(w, 4), Math.max(h, 4),
+              { isStatic: false, frictionAir: 0.05, restitution: 0.1, friction: 0.3 }
+            );
+            (newCell as any).kind = kind;
+            (newCell as any).color = color;
+            Matter.Body.setVelocity(newCell, { x: 0, y: 0 });
+            Matter.Composite.add(engine.world, newCell);
           }
         }
       }
-      // partMinY >= lineBottom → 완전히 아래 → 삭제
+      // partMinY >= lineBottom → 클리어 라인 아래 → 삭제 (추가 안 함)
     }
   }
 }
