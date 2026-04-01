@@ -40,21 +40,7 @@ export function createPlayTab(): HTMLElement {
       <h3>Next</h3>
       <canvas class="preview-canvas" id="next-canvas" width="140" height="140"></canvas>
     </div>
-    <div class="panel-box">
-      <div class="score-display">
-        SCORE<span class="value" id="score-value">0</span>
-        <div style="display:flex;gap:16px;margin-top:4px;">
-          <div>LEVEL<span class="value small" id="level-value">1</span></div>
-          <div>LINES<span class="value small" id="lines-value">0</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="panel-box">
-      <div class="game-buttons">
-        <button class="game-btn" id="start-btn">▶ START</button>
-        <button class="game-btn pause" id="pause-btn">⏸ PAUSE</button>
-      </div>
-    </div>
+    <div class="panel-box score-panel"><!-- TetrisApp Component 마운트 영역 --></div>
     <div class="panel-box">
       <div class="controls-help">
         <kbd>← →</kbd> 이동<br>
