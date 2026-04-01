@@ -3,12 +3,12 @@
 // DOM 구조 생성만 담당. 렌더링은 index.ts + renderer.ts가 처리.
 // ============================================================
 
-// 보드 크기 상수 — engine2d 기준 (28px셀, 10x20)
-const CELL_SIZE = 28;
+// 보드 크기 상수 — engine 기준 (32px셀, 10x18)
+const CELL_SIZE = 32;
 const BOARD_COLS = 10;
-const BOARD_ROWS = 20;
-const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;  // 280px
-const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS; // 560px
+const BOARD_ROWS = 18;
+const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;  // 320px
+const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS; // 576px
 
 /**
  * Play 탭의 전체 HTML 구조를 생성한다.
@@ -40,21 +40,7 @@ export function createPlayTab(): HTMLElement {
       <h3>Next</h3>
       <canvas class="preview-canvas" id="next-canvas" width="140" height="140"></canvas>
     </div>
-    <div class="panel-box score-panel">
-      <div class="score-display">
-        SCORE<span class="value" id="score-value">0</span>
-        <div style="display:flex;gap:16px;margin-top:4px;">
-          <div>LEVEL<span class="value small" id="level-value">1</span></div>
-          <div>LINES<span class="value small" id="lines-value">0</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="panel-box">
-      <div class="game-buttons">
-        <button class="game-btn" id="start-btn">▶ START</button>
-        <button class="game-btn pause" id="pause-btn">⏸ PAUSE</button>
-      </div>
-    </div>
+    <div class="panel-box score-panel"><!-- TetrisApp 마운트됨 --></div>
     <div class="panel-box">
       <div class="controls-help">
         <kbd>← →</kbd> 이동<br>

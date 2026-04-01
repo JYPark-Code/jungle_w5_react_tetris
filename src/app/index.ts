@@ -1,6 +1,6 @@
 // ============================================================
 // src/app/index.ts — 4탭 SPA 진입점
-// custom React (Component + hooks) 기반
+// custom React Component 마운트 + 탭 전환
 // ============================================================
 
 import { Component } from '../core/component';
@@ -70,31 +70,21 @@ function initApp(): void {
   }
 
   // ─── custom React Component 마운트 ───────────────────────
-  // score 패널 영역을 TetrisApp 컴포넌트가 담당
-  // → useState/useEffect/useMemo가 실제로 작동하는 곳
-  const scorePanelEl = document.querySelector('.score-panel') as HTMLElement | null;
-  if (scorePanelEl) {
-    scorePanelEl.innerHTML = '';
-    const tetrisApp = new Component(
-      TetrisAppFn,
-      {
-        boardCanvas: document.getElementById('board-canvas') as HTMLCanvasElement,
-        nextCanvas: document.getElementById('next-canvas') as HTMLCanvasElement,
-        holdCanvas: document.getElementById('hold-canvas') as HTMLCanvasElement,
-      },
-      'TetrisApp', // Flamegraph에 표시될 컴포넌트 이름
-    );
-    tetrisApp.mount(scorePanelEl);
+  const el = document.querySelector('.score-panel') as HTMLElement;
+  if (el) {
+    new Component(TetrisAppFn, {
+      boardCanvas: document.getElementById('board-canvas') as HTMLCanvasElement,
+      nextCanvas: document.getElementById('next-canvas') as HTMLCanvasElement,
+      holdCanvas: document.getElementById('hold-canvas') as HTMLCanvasElement,
+    }, 'TetrisApp').mount(el);
   }
 
   // Flamegraph 버튼
-  document.getElementById('flamegraph-refresh-btn')
-    ?.addEventListener('click', refreshFlamegraph);
-  document.getElementById('flamegraph-clear-btn')
-    ?.addEventListener('click', () => {
-      metricsStore.clear();
-      refreshFlamegraph();
-    });
+  document.getElementById('flamegraph-refresh-btn')?.addEventListener('click', refreshFlamegraph);
+  document.getElementById('flamegraph-clear-btn')?.addEventListener('click', () => {
+    metricsStore.clear();
+    refreshFlamegraph();
+  });
 
   switchTab(getCurrentTab());
   window.addEventListener('hashchange', () => switchTab(getCurrentTab()));

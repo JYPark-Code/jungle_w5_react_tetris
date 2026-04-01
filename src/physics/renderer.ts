@@ -1,152 +1,66 @@
 // ============================================================
-// renderer.ts — Canvas 기반 강체 렌더러
-// 각 블록을 다각형으로 렌더링 (translate + rotate)
+// renderer.ts — Canvas 렌더링 (각 Part를 개별 다각형으로)
 // ============================================================
 
-import type { RigidBody } from '../../contracts';
+import { Body, getAllWorldVerts, CELL_SIZE, BOARD_WIDTH, BOARD_HEIGHT, TETROMINO_COLORS } from './engine';
 
-/**
- * 매 프레임 호출되어 보드와 모든 블록을 Canvas에 그린다.
- */
+/** 메인 보드 렌더링 */
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
-  bodies: RigidBody[],
-  activeBody: RigidBody | null,
-  boardWidth: number,
-  boardHeight: number
+  bodies: Body[],
+  activeId: number | null,
 ): void {
   // 배경
   ctx.fillStyle = '#0d0d1a';
-  ctx.fillRect(0, 0, boardWidth, boardHeight);
+  ctx.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
 
-  // 그리드 라인 (참고용, 연한 색)
+  // 그리드
   ctx.strokeStyle = '#1a1a2e';
   ctx.lineWidth = 0.5;
-  const cellSize = 28;
-  for (let x = 0; x <= boardWidth; x += cellSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, boardHeight);
-    ctx.stroke();
+  for (let x = 0; x <= BOARD_WIDTH; x += CELL_SIZE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, BOARD_HEIGHT); ctx.stroke();
   }
-  for (let y = 0; y <= boardHeight; y += cellSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(boardWidth, y);
-    ctx.stroke();
+  for (let y = 0; y <= BOARD_HEIGHT; y += CELL_SIZE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(BOARD_WIDTH, y); ctx.stroke();
   }
 
-  // 고정된 블록 렌더링
+  // 모든 body 렌더링 (각 Part 개별)
   for (const body of bodies) {
-    drawBody(ctx, body, false);
-  }
+    if (body.kind === 0) continue;
+    const isActive = body.id === activeId;
+    for (const verts of getAllWorldVerts(body)) {
+      // 중심에서 5% 확장 (시각적 틈 제거)
+      const cx = verts.reduce((s, v) => s + v.x, 0) / verts.length;
+      const cy = verts.reduce((s, v) => s + v.y, 0) / verts.length;
+      const ev = verts.map(v => ({ x: cx + (v.x - cx) * 1.05, y: cy + (v.y - cy) * 1.05 }));
 
-  // 현재 떨어지는 블록 렌더링 (테두리 강조)
-  if (activeBody) {
-    drawBody(ctx, activeBody, true);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ev[0].x, ev[0].y);
+      for (let i = 1; i < ev.length; i++) ctx.lineTo(ev[i].x, ev[i].y);
+      ctx.closePath();
+      ctx.fillStyle = body.color;
+      ctx.fill();
+      ctx.strokeStyle = isActive ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 }
 
-/**
- * 하나의 강체를 Canvas에 그린다.
- * translate + rotate로 로컬 좌표계에서 렌더링.
- */
-function drawBody(ctx: CanvasRenderingContext2D, body: RigidBody, isActive: boolean = false): void {
-  const { position, angle, localVertices, color } = body;
-
-  if (localVertices.length < 3) return;
-
-  ctx.save();
-  ctx.translate(Math.round(position.x), Math.round(position.y));
-  ctx.rotate(angle);
-
-  // 각 꼭짓점을 중심에서 1.2배 확장 (시각적 틈 제거)
-  const EXPAND = 1.2;
-  const expandedVerts = localVertices.map((v) => ({
-    x: v.x * EXPAND,
-    y: v.y * EXPAND,
-  }));
-
-  ctx.beginPath();
-  ctx.moveTo(Math.round(expandedVerts[0].x), Math.round(expandedVerts[0].y));
-  for (let i = 1; i < expandedVerts.length; i++) {
-    ctx.lineTo(Math.round(expandedVerts[i].x), Math.round(expandedVerts[i].y));
-  }
-  ctx.closePath();
-
-  ctx.fillStyle = color;
-  ctx.fill();
-
-  // active 블록은 테두리 강조
-  if (isActive) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-/**
- * 미리보기 블록(Next/Hold)을 작은 Canvas에 렌더링한다.
- */
-export function renderPreviewBody(canvas: HTMLCanvasElement, body: RigidBody | null): void {
+/** Next/Hold 미리보기 */
+export function renderPreview(
+  canvas: HTMLCanvasElement,
+  kind: number | null,
+  colors: Record<number, string>,
+): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (!body) return;
-
-  const { localVertices, color } = body;
-  if (localVertices.length < 3) return;
-
-  // 블록의 실제 중심을 계산하여 캔버스 정중앙에 배치
-  const xs = localVertices.map((v) => v.x);
-  const ys = localVertices.map((v) => v.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const bw = maxX - minX;
-  const bh = maxY - minY;
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-
-  const padding = 16;
-  const scale = Math.min((canvas.width - padding) / bw, (canvas.height - padding) / bh, 1);
-
-  ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.scale(scale, scale);
-
-  // 블록 중심을 원점으로 보정
-  ctx.beginPath();
-  ctx.moveTo(localVertices[0].x - centerX, localVertices[0].y - centerY);
-  for (let i = 1; i < localVertices.length; i++) {
-    ctx.lineTo(localVertices[i].x - centerX, localVertices[i].y - centerY);
-  }
-  ctx.closePath();
-
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-/**
- * 라인 클리어 이펙트 — 수평선 flash
- */
-export function renderLineClearEffect(
-  ctx: CanvasRenderingContext2D,
-  lineY: number,
-  cellSize: number,
-  boardWidth: number
-): void {
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.fillRect(0, lineY, boardWidth, cellSize);
+  if (!kind) return;
+  // 간단한 사각형 미리보기
+  ctx.fillStyle = colors[kind] ?? '#888';
+  ctx.fillRect(canvas.width / 4, canvas.height / 4, canvas.width / 2, canvas.height / 2);
 }
