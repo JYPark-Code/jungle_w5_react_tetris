@@ -216,6 +216,9 @@ export interface NotTetrisState {
   isGameOver: boolean;
   boardWidth: number;
   boardHeight: number;
+  lockTimer: number;            // 착지 후 고정까지 남은 시간 (초)
+  lockResets: number;           // lock delay 리셋 횟수
+  graceTimer: number;           // 새 블록 생성 후 게임오버 유예 시간 (초)
 }
 
 // ------------------------------------------------------------

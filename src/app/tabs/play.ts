@@ -3,7 +3,7 @@
 // DOM 구조 생성만 담당. 렌더링은 index.ts + renderer.ts가 처리.
 // ============================================================
 
-// 보드 크기 상수 (renderer.ts와 동일)
+// 보드 크기 상수 — 480x960 (비율 1:2)
 const CELL_SIZE = 28;
 const BOARD_COLS = 10;
 const BOARD_ROWS = 20;
@@ -34,11 +34,11 @@ export function createPlayTab(): HTMLElement {
   sidePanel.innerHTML = `
     <div class="panel-box">
       <h3>Hold (R)</h3>
-      <canvas class="preview-canvas" id="hold-canvas" width="80" height="64"></canvas>
+      <canvas class="preview-canvas" id="hold-canvas" width="140" height="140"></canvas>
     </div>
     <div class="panel-box">
       <h3>Next</h3>
-      <canvas class="preview-canvas" id="next-canvas" width="80" height="64"></canvas>
+      <canvas class="preview-canvas" id="next-canvas" width="140" height="140"></canvas>
     </div>
     <div class="panel-box">
       <div class="score-display">

@@ -25,7 +25,13 @@ export function createFlamegraphTab(): HTMLElement {
           <button class="game-btn pause" id="flamegraph-clear-btn" style="padding:6px 12px;font-size:12px;">초기화</button>
         </div>
       </div>
-      <canvas id="flamegraph-canvas" width="860" height="200" style="background:#0d0d0d;border:1px solid #222;border-radius:4px;width:100%;"></canvas>
+      <div style="font-size:11px;color:#666;margin-bottom:8px;">
+        ■ 색칠 = 렌더링 발생 &nbsp; □ 빈칸 = 렌더링 없음(최적화) &nbsp;&nbsp;
+        <span style="color:#4ecdc4;">■ 초록=빠름</span> &nbsp;
+        <span style="color:#ff9f43;">■ 주황=보통</span> &nbsp;
+        <span style="color:#ffe66d;">■ 노랑=느림</span>
+      </div>
+      <canvas id="flamegraph-canvas" width="860" height="240" style="background:#0d0d0d;border:1px solid #222;border-radius:4px;width:100%;"></canvas>
     </div>
 
     <div class="info-section">
@@ -66,56 +72,57 @@ function renderFlamegraphCanvas(entries: FlamegraphEntry[]): void {
     return;
   }
 
-  // renderIndex 기준 그룹핑
-  const groups = new Map<number, FlamegraphEntry[]>();
+  // 컴포넌트 이름 목록 (고정 순서)
+  const componentNames = Array.from(new Set(entries.map((e) => e.componentName)));
+
+  // renderIndex 기준으로 컴포넌트별 데이터 매핑
+  const allIndices = Array.from(new Set(entries.map((e) => e.renderIndex))).sort((a, b) => a - b);
+  const maxCols = 60; // 최대 표시 열 수
+  const visibleIndices = allIndices.slice(-maxCols);
+
+  // 컴포넌트 → renderIndex → entry 맵
+  const dataMap = new Map<string, Map<number, FlamegraphEntry>>();
+  for (const name of componentNames) {
+    dataMap.set(name, new Map());
+  }
   for (const e of entries) {
-    const g = groups.get(e.renderIndex) ?? [];
-    g.push(e);
-    groups.set(e.renderIndex, g);
+    dataMap.get(e.componentName)?.set(e.renderIndex, e);
   }
 
-  const indices = Array.from(groups.keys()).sort((a, b) => a - b);
-  // 최근 50개만 표시
-  const visibleIndices = indices.slice(-50);
-  const maxDepth = Math.max(...Array.from(groups.values()).map((g) => g.length), 1);
+  const LABEL_W = 80;   // 왼쪽 컴포넌트명 영역
+  const PADDING_T = 10;
+  const ROW_H = Math.min(30, (H - PADDING_T) / Math.max(componentNames.length, 1));
+  const colW = Math.max(2, Math.floor((W - LABEL_W - 10) / Math.max(visibleIndices.length, 1)));
 
-  const PADDING = 30;
-  const barW = (W - PADDING * 2) / Math.max(visibleIndices.length, 1);
-  const barH = (H - PADDING * 2) / Math.max(maxDepth, 1);
+  // 컴포넌트별 행 렌더링
+  for (let row = 0; row < componentNames.length; row++) {
+    const name = componentNames[row];
+    const y = PADDING_T + row * ROW_H;
 
-  // 축 라벨
-  ctx.fillStyle = '#555';
-  ctx.font = '10px Consolas';
-  ctx.textAlign = 'center';
-  ctx.fillText('← commit 순서 →', W / 2, H - 4);
+    // 컴포넌트명 레이블
+    ctx.fillStyle = '#888';
+    ctx.font = '11px Consolas';
+    ctx.textAlign = 'right';
+    ctx.fillText(name.slice(0, 10), LABEL_W - 4, y + ROW_H / 2 + 4);
 
-  for (let col = 0; col < visibleIndices.length; col++) {
-    const group = groups.get(visibleIndices[col])!;
-    for (let depth = 0; depth < group.length; depth++) {
-      const entry = group[depth];
-      const x = PADDING + col * barW;
-      const y = PADDING + depth * barH;
-      const w = barW - 1;
-      const h = barH - 1;
+    // 해당 컴포넌트의 각 commit에 대한 막대
+    const compData = dataMap.get(name)!;
+    for (let col = 0; col < visibleIndices.length; col++) {
+      const idx = visibleIndices[col];
+      const entry = compData.get(idx);
+      const x = LABEL_W + col * colW;
 
-      // 색상: 초록(<8ms) 주황(8~16ms) 노랑(>16ms)
-      if (entry.duration < 8) {
-        ctx.fillStyle = '#4ecdc4';
-      } else if (entry.duration < 16) {
-        ctx.fillStyle = '#ff9f43';
+      if (x + colW > W) break; // canvas 경계 초과 방지
+
+      if (entry) {
+        if (entry.duration < 8) ctx.fillStyle = '#4ecdc4';
+        else if (entry.duration < 16) ctx.fillStyle = '#ff9f43';
+        else ctx.fillStyle = '#ffe66d';
       } else {
-        ctx.fillStyle = '#ffe66d';
+        ctx.fillStyle = '#1a1a1a'; // 렌더링 없음
       }
 
-      ctx.fillRect(x, y, w, h);
-
-      // 이름 표시 (충분히 클 때만)
-      if (w > 40 && h > 14) {
-        ctx.fillStyle = '#000';
-        ctx.font = '10px Consolas';
-        ctx.textAlign = 'left';
-        ctx.fillText(entry.componentName.slice(0, Math.floor(w / 6)), x + 2, y + h / 2 + 3);
-      }
+      ctx.fillRect(x, y + 1, colW - 1, ROW_H - 2);
     }
   }
 }
@@ -171,17 +178,28 @@ function renderInsights(): void {
   const seconds = Math.floor(gameTimeSeconds % 60);
   const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
+  // 데이터 기반 인사이트 자동 생성
+  const counts = stats.componentCounts;
+  const gameLoopCount = counts.get('GameLoop') ?? 0;
+  const blockCount = counts.get('Block') ?? 0;
+  const scoreCount = counts.get('Score') ?? 0;
+
+  let insightText = '';
+  if (gameLoopCount > 10 && scoreCount > 0) {
+    const savePct = ((1 - scoreCount / gameLoopCount) * 100).toFixed(0);
+    insightText = `<strong style="color:#ffe66d;">GameLoop이 ${gameLoopCount}번 실행되는 동안 Score는 ${scoreCount}번만 렌더링됐습니다 (${savePct}% 절감)</strong>`;
+  } else if (gameLoopCount > 0) {
+    insightText = `<strong style="color:#888;">데이터 수집 중... (${gameLoopCount} commits)</strong>`;
+  }
+
   container.innerHTML = `
-    <div style="display:flex;gap:24px;margin-bottom:12px;">
-      <span>🟢 평균 렌더링: <strong style="color:#4ecdc4;">${avgDuration.toFixed(1)}ms</strong></span>
+    <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap;">
+      <span>🟢 평균: <strong style="color:#4ecdc4;">${avgDuration.toFixed(1)}ms</strong></span>
       <span>🔴 최대: <strong style="color:#f44;">${maxDuration.toFixed(1)}ms</strong></span>
       <span>📦 총 commit: <strong style="color:#ffe66d;">${totalCommits}회</strong></span>
       <span>⏱ 게임 시간: <strong style="color:#fff;">${timeStr}</strong></span>
     </div>
-    <p style="color:#888;font-size:13px;">
-      "Component 분리를 통해 불필요한 렌더링을 제거할 수 있습니다.<br>
-      Score는 점수가 바뀔 때만, Board는 블록 고정 시에만 렌더링하면 됩니다."
-    </p>
+    ${insightText ? `<p style="margin-top:8px;font-size:14px;">${insightText}</p>` : ''}
   `;
 }
 

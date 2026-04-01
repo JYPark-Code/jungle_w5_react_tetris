@@ -100,6 +100,9 @@ body {
   border: 2px solid #333;
   border-radius: 4px;
   display: block;
+  /* 캔버스를 화면 높이에 맞게 확대 — 비율 유지 */
+  height: calc(100vh - 88px);
+  width: auto;
 }
 
 /* 사이드 패널 — 240px 너비 */

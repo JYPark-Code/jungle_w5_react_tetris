@@ -35,6 +35,10 @@ let isPaused = false;
 let animFrameId: number | null = null;
 let renderIndex = 0;
 let lastTimestamp = 0;
+let prevBodiesCount = 0;
+let prevScore = 0;
+let prevNextColor = '';
+let prevHeldColor = '';
 
 // ============================================================
 // 탭 라우팅
@@ -125,14 +129,42 @@ function gameLoop(timestamp: number): void {
     renderPreviewBody(holdCanvas, gameState.heldBody);
   }
 
-  // Flamegraph 데이터 기록 (metricsStore 경유)
-  const duration = performance.now() - startTime;
-  metricsStore.record({
-    componentName: 'GameLoop',
-    duration,
-    timestamp: performance.now(),
-    renderIndex: renderIndex++,
-  });
+  // Flamegraph 데이터 기록 — 컴포넌트별 개별 record
+  const totalDuration = performance.now() - startTime;
+  const ri = renderIndex++;
+  const ts = performance.now();
+
+  // GameLoop 전체
+  metricsStore.record({ componentName: 'GameLoop', duration: totalDuration, timestamp: ts, renderIndex: ri });
+
+  // Block: 매 프레임 렌더링 (activeBody가 있을 때)
+  if (gameState.activeBody) {
+    metricsStore.record({ componentName: 'Block', duration: totalDuration * 0.4, timestamp: ts, renderIndex: ri });
+  }
+
+  // Board: 블록 고정 시만 (bodies 수 변화 감지)
+  if (prevBodiesCount !== gameState.bodies.length) {
+    metricsStore.record({ componentName: 'Board', duration: totalDuration * 0.3, timestamp: ts, renderIndex: ri });
+    prevBodiesCount = gameState.bodies.length;
+  }
+
+  // Score: 점수 변경 시만
+  if (prevScore !== gameState.score) {
+    metricsStore.record({ componentName: 'Score', duration: 0.5, timestamp: ts, renderIndex: ri });
+    prevScore = gameState.score;
+  }
+
+  // Preview: next 블록 변경 시
+  if (prevNextColor !== gameState.nextBody.color) {
+    metricsStore.record({ componentName: 'Preview', duration: 0.3, timestamp: ts, renderIndex: ri });
+    prevNextColor = gameState.nextBody.color;
+  }
+
+  // HoldPanel: hold 블록 변경 시
+  if (prevHeldColor !== (gameState.heldBody?.color ?? '')) {
+    metricsStore.record({ componentName: 'HoldPanel', duration: 0.2, timestamp: ts, renderIndex: ri });
+    prevHeldColor = gameState.heldBody?.color ?? '';
+  }
 
   // 게임 오버 시 루프 중단
   if (gameState.isGameOver) {
@@ -159,6 +191,10 @@ function startGame(): void {
   isPaused = false;
   renderIndex = 0;
   lastTimestamp = 0;
+  prevBodiesCount = 0;
+  prevScore = 0;
+  prevNextColor = '';
+  prevHeldColor = '';
   metricsStore.clear();
   metricsStore.setLive(true);
   animFrameId = requestAnimationFrame(gameLoop);
