@@ -1,290 +1,338 @@
 // ============================================================
-// engine.ts — Matter.js 핵심 물리를 순수 TypeScript로 포팅
-// Compound body (4개 사각형), velocity 기반 이동, SAT 충돌
-// 모든 함수는 순수 함수 (state → newState)
+// engine.ts — 물리 엔진 기반 함수
+// contracts.ts의 타입을 기준으로 순수 함수로 구현
 // ============================================================
 
-export const CELL_SIZE = 32;
-export const BOARD_COLS = 10;
-export const BOARD_ROWS = 18;
-export const BOARD_WIDTH = CELL_SIZE * BOARD_COLS;   // 320px
-export const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS;  // 576px
-export const GRAVITY = 0.5;       // 중력 가속도 (px/frame²)
-export const DROP_SPEED = 100;    // 기본 낙하 속도 (px/s)
-export const FRICTION_AIR = 0.05; // 공기 마찰
-export const RESTITUTION = 0.0;   // 반발 계수 (테트리스는 튕김 없음)
-export const MAX_VY = 15;         // 최대 y 속도 (px/frame)
+import type {
+  Tetromino,
+  Board,
+  ApplyGravityFn,
+  CheckCollisionFn,
+  CutPieceAtLineFn,
+  ClearLinesFn,
+  RotateDirection,
+  TetrominoShape,
+} from '../../contracts';
 
-/** 2D 벡터 */
-export interface Vec2 { x: number; y: number; }
+// ------------------------------------------------------------
+// 유틸리티: 회전된 블록의 실제 셀 좌표를 계산
+// ------------------------------------------------------------
 
-/** 블록의 하나의 셀 (사각형) */
-export interface Part {
-  localVerts: Vec2[];  // 중심 기준 꼭짓점 (회전 전)
-}
+/**
+ * 블록의 shape 배열과 위치/각도를 기반으로
+ * 실제 보드 상의 셀 좌표(x, y)를 반환한다.
+ *
+ * 동작 원리:
+ * 1. shape의 각 셀(1인 곳)에 대해 블록 중심 기준 상대 좌표를 구한다.
+ * 2. angle(도 단위)만큼 2D 회전 변환을 적용한다.
+ * 3. 블록의 위치(x, y)를 더해 보드 좌표로 변환한다.
+ * 4. 반올림하여 정수 좌표로 반환한다.
+ */
+export function getRotatedCells(piece: Tetromino): { x: number; y: number }[] {
+  const { shape, x, y, angle } = piece;
+  const rows = shape.length;
+  const cols = shape[0].length;
+  // 블록 shape의 중심점
+  const cx = (cols - 1) / 2;
+  const cy = (rows - 1) / 2;
 
-/** 강체 블록 — compound body (여러 Part로 구성) */
-export interface Body {
-  id: number;
-  parts: Part[];           // 각 셀의 로컬 꼭짓점
-  position: Vec2;          // 블록 중심 (픽셀)
-  velocity: Vec2;          // 속도 (px/frame)
-  angle: number;           // 회전각 (라디안)
-  angularVelocity: number; // 각속도 (rad/frame)
-  isStatic: boolean;       // 착지 후 true
-  mass: number;            // 질량 (셀 수)
-  frictionAir: number;     // 공기 마찰
-  restitution: number;     // 반발 계수
-  color: string;
-  kind: number;            // 테트로미노 종류 (1-7)
-  isActive: boolean;       // 현재 조작 중
-}
+  const rad = (angle * Math.PI) / 180;
+  const cosA = Math.cos(rad);
+  const sinA = Math.sin(rad);
 
-// ── Vec2 유틸리티 ──────────────────────────────────────────
-export const v2 = {
-  add: (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y }),
-  sub: (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y }),
-  scale: (v: Vec2, s: number): Vec2 => ({ x: v.x * s, y: v.y * s }),
-  dot: (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y,
-  len: (v: Vec2): number => Math.sqrt(v.x * v.x + v.y * v.y),
-  norm: (v: Vec2): Vec2 => {
-    const l = Math.sqrt(v.x * v.x + v.y * v.y);
-    return l > 0.0001 ? { x: v.x / l, y: v.y / l } : { x: 0, y: 0 };
-  },
-  perp: (v: Vec2): Vec2 => ({ x: -v.y, y: v.x }),
-};
+  const cells: { x: number; y: number }[] = [];
 
-// ── 꼭짓점 변환 ────────────────────────────────────────────
-
-/** Part의 localVerts를 월드 좌표로 변환 (회전 + 이동) */
-export function getWorldVerts(part: Part, pos: Vec2, angle: number): Vec2[] {
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  return part.localVerts.map(v => ({
-    x: pos.x + v.x * cos - v.y * sin,
-    y: pos.y + v.x * sin + v.y * cos,
-  }));
-}
-
-/** Body의 모든 Part의 월드 좌표를 반환 */
-export function getAllWorldVerts(body: Body): Vec2[][] {
-  return body.parts.map(p => getWorldVerts(p, body.position, body.angle));
-}
-
-// ── SAT 충돌 감지 ──────────────────────────────────────────
-
-/** 다각형을 축에 투영 */
-function project(verts: Vec2[], axis: Vec2): [number, number] {
-  let min = Infinity, max = -Infinity;
-  for (const v of verts) {
-    const p = v2.dot(v, axis);
-    if (p < min) min = p;
-    if (p > max) max = p;
-  }
-  return [min, max];
-}
-
-/** 다각형의 모든 모서리에서 법선 벡터(분리축) 추출 */
-function getAxes(verts: Vec2[]): Vec2[] {
-  const axes: Vec2[] = [];
-  for (let i = 0; i < verts.length; i++) {
-    axes.push(v2.norm(v2.perp(v2.sub(verts[(i + 1) % verts.length], verts[i]))));
-  }
-  return axes;
-}
-
-interface Collision { colliding: boolean; depth: number; normal: Vec2; }
-
-/** SAT로 두 다각형의 충돌 판정 */
-export function checkCollision(va: Vec2[], vb: Vec2[]): Collision {
-  let minDepth = Infinity, minNormal: Vec2 = { x: 0, y: 1 };
-  const axes = [...getAxes(va), ...getAxes(vb)];
-  for (const axis of axes) {
-    if (v2.len(axis) < 0.0001) continue;
-    const [minA, maxA] = project(va, axis);
-    const [minB, maxB] = project(vb, axis);
-    // 분리축 발견 → 충돌 없음
-    if (maxA < minB || maxB < minA) return { colliding: false, depth: 0, normal: minNormal };
-    const depth = Math.min(maxA - minB, maxB - minA);
-    if (depth < minDepth) {
-      minDepth = depth;
-      // MTV 방향: A→B
-      const ca = va.reduce((s, v) => v2.add(s, v), { x: 0, y: 0 });
-      ca.x /= va.length; ca.y /= va.length;
-      const cb = vb.reduce((s, v) => v2.add(s, v), { x: 0, y: 0 });
-      cb.x /= vb.length; cb.y /= vb.length;
-      minNormal = v2.dot(v2.sub(cb, ca), axis) < 0 ? v2.scale(axis, -1) : axis;
-    }
-  }
-  return { colliding: true, depth: minDepth, normal: minNormal };
-}
-
-// ── 테트로미노 정의 ────────────────────────────────────────
-
-const H = CELL_SIZE / 2;
-
-/** 원본 gameA.lua createtetriA 기준 셀 오프셋 */
-const TETROMINO_CELLS: Record<number, Vec2[]> = {
-  1: [{ x: -48, y: 0 }, { x: -16, y: 0 }, { x: 16, y: 0 }, { x: 48, y: 0 }],      // I
-  2: [{ x: -32, y: -16 }, { x: 0, y: -16 }, { x: 32, y: -16 }, { x: 32, y: 16 }],  // J
-  3: [{ x: -32, y: -16 }, { x: 0, y: -16 }, { x: 32, y: -16 }, { x: -32, y: 16 }], // L
-  4: [{ x: -16, y: -16 }, { x: 16, y: -16 }, { x: 16, y: 16 }, { x: -16, y: 16 }], // O
-  5: [{ x: -32, y: 16 }, { x: 0, y: -16 }, { x: 32, y: -16 }, { x: 0, y: 16 }],    // S
-  6: [{ x: -32, y: -16 }, { x: 0, y: -16 }, { x: 32, y: -16 }, { x: 0, y: 16 }],   // T
-  7: [{ x: 0, y: 16 }, { x: 0, y: -16 }, { x: 32, y: 16 }, { x: -32, y: -16 }],    // Z
-};
-
-export const TETROMINO_COLORS: Record<number, string> = {
-  1: '#00f0f0', 2: '#0000f0', 3: '#f0a000', 4: '#f0f000',
-  5: '#00f000', 6: '#a000f0', 7: '#f00000',
-};
-
-/** 셀 하나의 Part 생성 (중심 기준 사각형) */
-function makeRectPart(cx: number, cy: number): Part {
-  return {
-    localVerts: [
-      { x: cx - H, y: cy - H },
-      { x: cx + H, y: cy - H },
-      { x: cx + H, y: cy + H },
-      { x: cx - H, y: cy + H },
-    ],
-  };
-}
-
-// ── 테트로미노 생성 ────────────────────────────────────────
-
-let _nextId = 1;
-
-/** 테트로미노 Body 생성 — 각 셀을 Part로 compound body 구성 */
-export function createTetromino(kind: number, x: number, y: number): Body {
-  return {
-    id: _nextId++,
-    parts: TETROMINO_CELLS[kind].map(c => makeRectPart(c.x, c.y)),
-    position: { x, y },
-    velocity: { x: 0, y: DROP_SPEED / 60 },
-    angle: 0,
-    angularVelocity: 0,
-    isStatic: false,
-    mass: 4,
-    frictionAir: FRICTION_AIR,
-    restitution: RESTITUTION,
-    color: TETROMINO_COLORS[kind],
-    kind,
-    isActive: true,
-  };
-}
-
-// ── 물리 스텝 함수들 ───────────────────────────────────────
-
-/** 중력 + 공기 마찰 적용 */
-export function applyGravity(body: Body): Body {
-  if (body.isStatic) return body;
-  let vx = body.velocity.x * (1 - body.frictionAir);
-  let vy = Math.min(body.velocity.y + GRAVITY, MAX_VY);
-  let av = body.angularVelocity * 0.9;
-
-  // 매우 작은 속도는 0으로 snap (sleeping — 무한 미세 진동 방지)
-  if (Math.abs(vx) < 0.05) vx = 0;
-  if (Math.abs(av) < 0.001) av = 0;
-
-  return { ...body, velocity: { x: vx, y: vy }, angularVelocity: av };
-}
-
-/** 위치/각도 적분 (velocity → position) */
-export function integratePosition(body: Body): Body {
-  if (body.isStatic) return body;
-  return {
-    ...body,
-    position: v2.add(body.position, body.velocity),
-    angle: body.angle + body.angularVelocity,
-  };
-}
-
-/** 벽/바닥 제약 적용 */
-export function applyWallConstraints(body: Body): Body {
-  if (body.isStatic) return body;
-  let pos = { ...body.position };
-  let vel = { ...body.velocity };
-  const allV = body.parts.flatMap(p => getWorldVerts(p, pos, body.angle));
-  const minX = Math.min(...allV.map(v => v.x));
-  const maxX = Math.max(...allV.map(v => v.x));
-  const maxY = Math.max(...allV.map(v => v.y));
-  if (minX < 0) { pos.x -= minX; if (vel.x < 0) vel.x = 0; }
-  if (maxX > BOARD_WIDTH) { pos.x -= maxX - BOARD_WIDTH; if (vel.x > 0) vel.x = 0; }
-  if (maxY > BOARD_HEIGHT) { pos.y -= maxY - BOARD_HEIGHT; vel.y = 0; vel.x *= 0.3; }
-  return { ...body, position: pos, velocity: vel };
-}
-
-/** 모든 body 간 SAT 충돌 해소 */
-export function resolveBodyCollisions(bodies: Body[]): Body[] {
-  const result = bodies.map(b => ({
-    ...b, position: { ...b.position }, velocity: { ...b.velocity },
-  }));
-  // 3회 반복으로 깊은 겹침도 완전 해소
-  for (let iter = 0; iter < 2; iter++) {
-  for (let i = 0; i < result.length; i++) {
-    for (let j = i + 1; j < result.length; j++) {
-      const a = result[i], b = result[j];
-      if (a.isStatic && b.isStatic) continue;
-      // AABB 사전 체크
-      const aV = a.parts.flatMap(p => getWorldVerts(p, a.position, a.angle));
-      const bV = b.parts.flatMap(p => getWorldVerts(p, b.position, b.angle));
-      if (Math.max(...aV.map(v => v.x)) < Math.min(...bV.map(v => v.x))) continue;
-      if (Math.min(...aV.map(v => v.x)) > Math.max(...bV.map(v => v.x))) continue;
-      if (Math.max(...aV.map(v => v.y)) < Math.min(...bV.map(v => v.y))) continue;
-      if (Math.min(...aV.map(v => v.y)) > Math.max(...bV.map(v => v.y))) continue;
-      // 각 Part 쌍별 SAT
-      for (const pa of a.parts) {
-        for (const pb of b.parts) {
-          const wva = getWorldVerts(pa, a.position, a.angle);
-          const wvb = getWorldVerts(pb, b.position, b.angle);
-          const col = checkCollision(wva, wvb);
-          if (!col.colliding || col.depth < 0.01) continue;
-          // 위치 보정
-          const corr = v2.scale(col.normal, col.depth);
-          // 상대가 static이면 강하게, 아니면 약하게 보정
-          const corrRateA = b.isStatic ? 0.4 : 0.08;
-          const corrRateB = a.isStatic ? 0.4 : 0.08;
-          if (!a.isStatic) result[i].position = v2.sub(result[i].position, v2.scale(corr, corrRateA));
-          if (!b.isStatic) result[j].position = v2.add(result[j].position, v2.scale(corr, corrRateB));
-          // 충격량 계산 (impulse)
-          const rel = v2.sub(result[i].velocity, result[j].velocity);
-          const vn = v2.dot(rel, col.normal);
-          if (vn > 0) continue; // 이미 분리 중
-          const e = Math.min(a.restitution, b.restitution);
-          const ia = a.isStatic ? 0 : 1 / a.mass;
-          const ib = b.isStatic ? 0 : 1 / b.mass;
-          const jj = -(1 + e) * vn / (ia + ib);
-          const imp = v2.scale(col.normal, jj);
-          if (!a.isStatic) result[i].velocity = v2.sub(result[i].velocity, v2.scale(imp, ia));
-          if (!b.isStatic) result[j].velocity = v2.add(result[j].velocity, v2.scale(imp, ib));
-        }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (shape[r][c]) {
+        // 중심 기준 상대 좌표
+        const dx = c - cx;
+        const dy = r - cy;
+        // 2D 회전 변환
+        const rx = dx * cosA - dy * sinA;
+        const ry = dx * sinA + dy * cosA;
+        // 보드 좌표로 변환 (반올림)
+        cells.push({
+          x: Math.round(x + rx),
+          y: Math.round(y + ry),
+        });
       }
     }
   }
-  } // iter 반복 끝
-  return result;
+
+  return cells;
 }
 
-/** 착지 판정: 1px 아래 가상 이동 후 SAT 충돌 여부로 판정 */
-export function checkLanding(body: Body, statics: Body[]): boolean {
-  if (body.isStatic) return false;
+// ------------------------------------------------------------
+// checkCollision: 충돌 여부 반환
+// ------------------------------------------------------------
 
-  // 3px 아래 테스트 — resolveBodyCollisions 보정(0.4*depth)보다 커야 안정 감지
-  const testPos: Vec2 = { x: body.position.x, y: body.position.y + 3 };
+/**
+ * 블록이 보드 경계를 벗어나거나 이미 채워진 셀과 겹치는지 확인한다.
+ *
+ * 동작 원리:
+ * 1. 회전이 적용된 실제 셀 좌표를 구한다.
+ * 2. 각 셀이 보드 범위 밖이면 충돌이다.
+ * 3. 각 셀 위치에 이미 블록이 있으면 충돌이다.
+ */
+export const checkCollision: CheckCollisionFn = (
+  piece: Tetromino,
+  board: Board
+): boolean => {
+  const cells = getRotatedCells(piece);
+  const rows = board.length;
+  const cols = board[0].length;
 
-  // 바닥 체크
-  const testVerts = body.parts.flatMap(p => getWorldVerts(p, testPos, body.angle));
-  if (Math.max(...testVerts.map(v => v.y)) >= BOARD_HEIGHT) return true;
-
-  // static body와 SAT 충돌 체크
-  for (const s of statics) {
-    for (const pa of body.parts) {
-      const wva = getWorldVerts(pa, testPos, body.angle);
-      for (const pb of s.parts) {
-        const wvb = getWorldVerts(pb, s.position, s.angle);
-        if (checkCollision(wva, wvb).colliding) return true;
-      }
+  for (const cell of cells) {
+    // 보드 경계 체크
+    if (cell.x < 0 || cell.x >= cols || cell.y < 0 || cell.y >= rows) {
+      return true;
+    }
+    // 기존 블록과 충돌 체크
+    if (board[cell.y][cell.x] !== null) {
+      return true;
     }
   }
+
   return false;
+};
+
+// ------------------------------------------------------------
+// applyGravity: 중력 적용 후 새 Tetromino 반환
+// ------------------------------------------------------------
+
+/**
+ * 중력을 적용하여 블록을 아래로 이동시킨다.
+ *
+ * 동작 원리:
+ * 1. vy(수직 속도)에 중력 가속도(0.5)를 더한다.
+ * 2. 블록의 y 좌표에 vy를 더해 새 위치를 구한다.
+ * 3. vx(수평 속도)도 적용하고 마찰(0.9)로 감쇠시킨다.
+ * 4. angularVelocity가 있으면 angle에 더하고 감쇠시킨다.
+ * 5. 새 위치에서 충돌이 발생하면 이전 위치를 유지하고 속도를 0으로 리셋한다.
+ */
+export const applyGravity: ApplyGravityFn = (
+  piece: Tetromino,
+  board: Board
+): Tetromino => {
+  const GRAVITY = 0.15;  // 회전 기능이 체감되는 속도
+  const MAX_VY = 1.0;
+  const FRICTION = 0.9;
+  const ANGULAR_FRICTION = 0.85;
+
+  // === 1단계: 회전만 먼저 적용 ===
+  // 회전이 충돌을 일으키면 회전만 취소 (vy는 유지)
+  const newAngularVelocity = piece.angularVelocity * ANGULAR_FRICTION;
+  const newAngle = piece.angle + newAngularVelocity;
+
+  const withRotation: Tetromino = {
+    ...piece,
+    angle: newAngle,
+    angularVelocity: newAngularVelocity,
+  };
+
+  const rotationCollides = checkCollision(withRotation, board);
+  const safeAngle = rotationCollides ? piece.angle : newAngle;
+  const safeAngularVelocity = rotationCollides ? 0 : newAngularVelocity;
+
+  // === 2단계: 낙하 적용 ===
+  const newVy = Math.min(piece.vy + GRAVITY, MAX_VY);
+  const newVx = piece.vx * FRICTION;
+  const newY = piece.y + newVy;
+  const newX = piece.x + newVx;
+
+  const moved: Tetromino = {
+    ...piece,
+    x: newX,
+    y: newY,
+    vx: newVx,
+    vy: newVy,
+    angle: safeAngle,
+    angularVelocity: safeAngularVelocity,
+  };
+
+  // 낙하 충돌 체크 (회전 제외, 위치만)
+  if (checkCollision(moved, board)) {
+    // 충돌 직전 최대 y 위치를 찾아서 정확한 착지 위치 반환
+    let landY = piece.y;
+    const step = 0.05;
+    while (true) {
+      const testY = landY + step;
+      if (testY >= newY) break;
+      const test: Tetromino = { ...piece, y: testY, angle: safeAngle };
+      if (checkCollision(test, board)) break;
+      landY = testY;
+    }
+
+    return {
+      ...piece,
+      y: landY,
+      angle: safeAngle,
+      angularVelocity: safeAngularVelocity,
+      vx: 0,
+      vy: 0,
+    };
+  }
+
+  return moved;
+};
+
+// ------------------------------------------------------------
+// rotatePiece: 물리 기반 회전 (실제 각도)
+// ------------------------------------------------------------
+
+/**
+ * 블록에 회전 충격량(angular impulse)을 가한다.
+ * 360도 자유 회전 — Q키(반시계), E키(시계) 대응.
+ *
+ * 동작 원리:
+ * 1. direction에 따라 양(+cw) 또는 음(-ccw) 충격량을 부여한다.
+ * 2. 이 값은 매 프레임 applyGravity에서 angle에 누적 적용된다.
+ * 3. 마찰에 의해 점차 감속하여 자연스러운 회전 효과를 낸다.
+ */
+export function rotatePiece(
+  piece: Tetromino,
+  direction: RotateDirection = 'cw'
+): Tetromino {
+  const ANGULAR_IMPULSE = 15; // 회전 충격량 (도 단위) — 45는 너무 빨라 충돌 오작동
+  const impulse = direction === 'cw' ? ANGULAR_IMPULSE : -ANGULAR_IMPULSE;
+
+  return {
+    ...piece,
+    angularVelocity: piece.angularVelocity + impulse,
+  };
 }
+
+/**
+ * 90도 즉시 회전 (↑키).
+ * 전통 테트리스 스타일: 각도를 즉시 90도 단위로 변경한다.
+ *
+ * 동작 원리:
+ * 1. 현재 angle에 90도를 더한 새 블록을 만든다.
+ * 2. 새 위치에서 충돌이 발생하면 회전하지 않는다.
+ * 3. angularVelocity는 0으로 리셋하여 관성 회전을 멈춘다.
+ */
+export function snapRotate(piece: Tetromino, board: Board): Tetromino {
+  const rotated: Tetromino = {
+    ...piece,
+    angle: piece.angle + 90,
+    angularVelocity: 0, // 즉시 회전이므로 관성 제거
+  };
+
+  // 충돌 시 회전 무시
+  if (checkCollision(rotated, board)) {
+    return piece;
+  }
+
+  return rotated;
+}
+
+// ------------------------------------------------------------
+// cutPieceAtLine: 기울어진 블록을 수평선 기준으로 절단
+// ------------------------------------------------------------
+
+/**
+ * 블록을 주어진 수평선(lineY)을 기준으로 위/아래로 절단한다.
+ * 이 프로젝트의 핵심 차별점: 기울어진 블록도 정확히 절단 처리.
+ *
+ * 동작 원리:
+ * 1. 회전이 적용된 실제 셀 좌표를 구한다.
+ * 2. 각 셀을 lineY 기준으로 위(y < lineY)와 아래(y >= lineY)로 분류한다.
+ * 3. 위쪽 셀만으로 새 shape을 구성하여 top Tetromino를 만든다.
+ * 4. 아래쪽 셀만으로 bottom Tetromino를 만든다.
+ * 5. 한쪽에 셀이 없으면 null을 반환한다.
+ */
+export const cutPieceAtLine: CutPieceAtLineFn = (
+  piece: Tetromino,
+  lineY: number
+): { top: Tetromino | null; bottom: Tetromino | null } => {
+  const cells = getRotatedCells(piece);
+
+  // 셀을 lineY 기준으로 분류
+  const topCells = cells.filter((c) => c.y < lineY);
+  const bottomCells = cells.filter((c) => c.y >= lineY);
+
+  /**
+   * 셀 목록으로부터 새 Tetromino를 생성한다.
+   * 셀의 최소 좌표를 기준으로 shape 배열을 재구성하고,
+   * 위치를 해당 최소 좌표로 설정한다.
+   * 절단 후에는 각도를 0으로 리셋한다 (이미 회전이 셀 좌표에 반영됨).
+   */
+  function buildPiece(
+    filteredCells: { x: number; y: number }[]
+  ): Tetromino | null {
+    if (filteredCells.length === 0) return null;
+
+    const minX = Math.min(...filteredCells.map((c) => c.x));
+    const minY = Math.min(...filteredCells.map((c) => c.y));
+    const maxX = Math.max(...filteredCells.map((c) => c.x));
+    const maxY = Math.max(...filteredCells.map((c) => c.y));
+
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    // 새 shape 배열 생성
+    const shape: number[][] = Array.from({ length: height }, () =>
+      Array(width).fill(0)
+    );
+
+    for (const cell of filteredCells) {
+      shape[cell.y - minY][cell.x - minX] = 1;
+    }
+
+    return {
+      shape,
+      x: minX,
+      y: minY,
+      angle: 0, // 회전은 이미 셀 좌표에 반영되었으므로 리셋
+      vx: 0,
+      vy: 0,
+      angularVelocity: 0,
+      color: piece.color,
+    };
+  }
+
+  return {
+    top: buildPiece(topCells),
+    bottom: buildPiece(bottomCells),
+  };
+};
+
+// ------------------------------------------------------------
+// clearLines: 완성된 라인 제거 후 새 보드 반환
+// ------------------------------------------------------------
+
+/**
+ * 보드에서 완성된 라인(모든 셀이 채워진 행)을 제거한다.
+ *
+ * 동작 원리:
+ * 1. 각 행을 검사하여 모든 셀이 null이 아닌 행을 찾는다.
+ * 2. 완성된 행을 제거한다.
+ * 3. 제거된 행 수만큼 빈 행을 보드 상단에 추가한다.
+ * 4. 새 보드와 제거된 라인 수를 반환한다.
+ */
+export const clearLines: ClearLinesFn = (
+  board: Board
+): { board: Board; linesCleared: number } => {
+  const cols = board[0].length;
+
+  // 90% 이상 채워진 행을 클리어 (기울어진 블록 허용)
+  const CLEAR_THRESHOLD = 0.9;
+  const remainingRows = board.filter((row) => {
+    const filledCount = row.filter((cell) => cell !== null).length;
+    return filledCount < Math.floor(row.length * CLEAR_THRESHOLD);
+  });
+
+  const linesCleared = board.length - remainingRows.length;
+
+  // 제거된 행 수만큼 빈 행을 상단에 추가
+  const emptyRows: (string | null)[][] = Array.from(
+    { length: linesCleared },
+    () => Array(cols).fill(null)
+  );
+
+  return {
+    board: [...emptyRows, ...remainingRows],
+    linesCleared,
+  };
+};

@@ -3,7 +3,7 @@
 // DOM 구조 생성만 담당. 렌더링은 index.ts + renderer.ts가 처리.
 // ============================================================
 
-// 보드 크기 상수 — engine 기준 (32px셀, 10x18)
+// 보드 크기 상수 — Matter.js 기준 (32px셀, 10x18)
 const CELL_SIZE = 32;
 const BOARD_COLS = 10;
 const BOARD_ROWS = 18;
@@ -40,7 +40,21 @@ export function createPlayTab(): HTMLElement {
       <h3>Next</h3>
       <canvas class="preview-canvas" id="next-canvas" width="140" height="140"></canvas>
     </div>
-    <div class="panel-box score-panel"></div>
+    <div class="panel-box">
+      <div class="score-display">
+        SCORE<span class="value" id="score-value">0</span>
+        <div style="display:flex;gap:16px;margin-top:4px;">
+          <div>LEVEL<span class="value small" id="level-value">1</span></div>
+          <div>LINES<span class="value small" id="lines-value">0</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-box">
+      <div class="game-buttons">
+        <button class="game-btn" id="start-btn">▶ START</button>
+        <button class="game-btn pause" id="pause-btn">⏸ PAUSE</button>
+      </div>
+    </div>
     <div class="panel-box">
       <div class="controls-help">
         <kbd>← →</kbd> 이동<br>

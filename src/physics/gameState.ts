@@ -1,301 +1,323 @@
 // ============================================================
-// gameState.ts — 게임 상태 관리 (순수 함수 nextTick)
-// custom React: setGameState(prev => nextTick(prev, dt, keys))
+// gameState.ts — 게임 상태 관리 (lockedPieces 기반)
+// 고정된 블록이 개체 정보를 유지하여 중력 재적용 가능
 // ============================================================
 
-import {
-  Body, BOARD_WIDTH, BOARD_HEIGHT, CELL_SIZE, DROP_SPEED, MAX_VY,
-  createTetromino, getAllWorldVerts, getWorldVerts, checkCollision,
-  applyGravity, integratePosition, applyWallConstraints, resolveBodyCollisions, checkLanding,
-} from './engine';
-import { checkLineDensity, removeLinesFromBodies } from './linecut';
+import type { PhysicsState, Tetromino, Board, TetrominoShape, RotateDirection } from '../../contracts';
+import { applyGravity, checkCollision, clearLines, getRotatedCells, rotatePiece as engineRotate, snapRotate as engineSnapRotate } from './engine';
 
-export interface TetrisState {
-  bodies: Body[];
-  activeId: number | null;
-  nextKind: number;
-  heldKind: number | null;
-  canHold: boolean;
-  score: number;
-  level: number;
-  linesCleared: number;
-  isGameOver: boolean;
-  lockTimer: number;
-  clearCooldown: number;
-}
+// 테트로미노 정의
+const SHAPES: { shape: TetrominoShape; color: string }[] = [
+  { shape: [[1, 1, 1, 1]], color: '#00f0f0' },
+  { shape: [[1, 0], [1, 0], [1, 1]], color: '#0000f0' },
+  { shape: [[0, 1], [0, 1], [1, 1]], color: '#f0a000' },
+  { shape: [[1, 1], [1, 1]], color: '#f0f000' },
+  { shape: [[0, 1, 1], [1, 1, 0]], color: '#00f000' },
+  { shape: [[1, 1, 0], [0, 1, 1]], color: '#f00000' },
+  { shape: [[0, 1, 0], [1, 1, 1]], color: '#a000f0' },
+];
 
-export interface Keys {
-  left: boolean;
-  right: boolean;
-  rotateLeft: boolean;
-  rotateRight: boolean;
-  down: boolean;
-}
-
-const SPAWN_X = BOARD_WIDTH / 2;
-const SPAWN_Y = CELL_SIZE * 1.5;
-const LOCK_DELAY = 0.5;
-const CLEAR_COOLDOWN = 0.5;
-
-export function initTetrisState(): TetrisState {
-  const firstKind = Math.ceil(Math.random() * 7);
-  const nextKind = Math.ceil(Math.random() * 7);
-  const active = createTetromino(firstKind, SPAWN_X, SPAWN_Y);
+function createRandomPiece(boardCols: number): Tetromino {
+  const idx = Math.floor(Math.random() * SHAPES.length);
+  const { shape, color } = SHAPES[idx];
   return {
-    bodies: [active],
-    activeId: active.id,
-    nextKind,
-    heldKind: null,
+    shape, color,
+    x: Math.floor(boardCols / 2) - Math.floor(shape[0].length / 2),
+    y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
+  };
+}
+
+const BOARD_ROWS = 20;
+const BOARD_COLS = 10;
+
+function createEmptyBoard(): Board {
+  return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
+}
+
+// ------------------------------------------------------------
+// lockedPieces → board 재계산
+// ------------------------------------------------------------
+
+function buildBoardFromPieces(pieces: Tetromino[]): Board {
+  const board = createEmptyBoard();
+  for (const piece of pieces) {
+    const cells = getRotatedCells(piece);
+    for (const cell of cells) {
+      if (cell.y >= 0 && cell.y < BOARD_ROWS && cell.x >= 0 && cell.x < BOARD_COLS) {
+        if (board[cell.y][cell.x] === null) {
+          board[cell.y][cell.x] = piece.color;
+        }
+      }
+    }
+  }
+  return board;
+}
+
+// ------------------------------------------------------------
+// 지지대 확인: 아래에 바닥 또는 다른 블록이 있는지
+// ------------------------------------------------------------
+
+function isUnsupported(piece: Tetromino, allPieces: Tetromino[]): boolean {
+  const otherPieces = allPieces.filter((p) => p !== piece);
+  const boardWithoutSelf = buildBoardFromPieces(otherPieces);
+  const below = { ...piece, y: piece.y + 1 };
+  return !checkCollision(below, boardWithoutSelf);
+}
+
+// ------------------------------------------------------------
+// 라인 클리어 후 lockedPieces에서 제거된 셀 삭제
+// ------------------------------------------------------------
+
+function removeLineFromPieces(
+  pieces: Tetromino[],
+  beforeBoard: Board,
+  afterBoard: Board
+): Tetromino[] {
+  const clearedRows: number[] = [];
+  for (let r = 0; r < BOARD_ROWS; r++) {
+    const beforeFull = beforeBoard[r].filter((c) => c !== null).length >= Math.floor(BOARD_COLS * 0.9);
+    const afterEmpty = afterBoard[r].every((c) => c === null);
+    if (beforeFull && afterEmpty) clearedRows.push(r);
+  }
+
+  if (clearedRows.length === 0) return pieces;
+
+  const result: Tetromino[] = [];
+  for (const piece of pieces) {
+    const cells = getRotatedCells(piece);
+    const remainingCells = cells.filter((c) => !clearedRows.includes(c.y));
+
+    if (remainingCells.length === 0) continue;
+    if (remainingCells.length === cells.length) { result.push(piece); continue; }
+
+    const minX = Math.min(...remainingCells.map((c) => c.x));
+    const minY = Math.min(...remainingCells.map((c) => c.y));
+    const maxX = Math.max(...remainingCells.map((c) => c.x));
+    const maxY = Math.max(...remainingCells.map((c) => c.y));
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    const shape: number[][] = Array.from({ length: height }, () => Array(width).fill(0));
+    for (const cell of remainingCells) {
+      shape[cell.y - minY][cell.x - minX] = 1;
+    }
+
+    // getRotatedCells는 cell.y = Math.round(piece.y + (rowIndex - cy)) 계산
+    // piece.y = minY + cy 로 설정해야 첫 번째 행이 minY에 정확히 배치됨
+    const cx = (width - 1) / 2;
+    const cy = (height - 1) / 2;
+    result.push({ ...piece, shape, x: minX + cx, y: minY + cy, angle: 0, vy: 0, vx: 0 });
+  }
+
+  return result;
+}
+
+// ------------------------------------------------------------
+// initState
+// ------------------------------------------------------------
+
+export function initState(): PhysicsState {
+  return {
+    board: createEmptyBoard(),
+    lockedPieces: [],
+    currentPiece: createRandomPiece(BOARD_COLS),
+    nextPiece: createRandomPiece(BOARD_COLS),
+    heldPiece: null,
     canHold: true,
     score: 0,
     level: 1,
-    linesCleared: 0,
     isGameOver: false,
-    lockTimer: 0,
-    clearCooldown: 0,
+    linesCleared: 0,
   };
 }
 
-// ── 핵심: 순수 함수 nextTick ──────────────────────────────
-export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisState {
-  if (state.isGameOver) return state;
-  const safeDt = Math.min(dt, 0.05);
+// ------------------------------------------------------------
+// nextTick
+// ------------------------------------------------------------
 
-  // 클리어 쿨다운 중에도 파편 낙하 물리는 계속 실행
-  if (state.clearCooldown > 0) {
-    let coolBodies = state.bodies.map(b =>
-      b.id === state.activeId ? b : applyGravity(b)
-    );
-    coolBodies = coolBodies.map(b =>
-      b.id === state.activeId ? b : integratePosition(b)
-    );
-    coolBodies = resolveBodyCollisions(coolBodies);
-    coolBodies = coolBodies.map(b =>
-      b.id === state.activeId ? b : applyWallConstraints(b)
-    );
-    // 파편 착지 → isStatic 전환
-    const coolStatics = coolBodies.filter(b => b.isStatic);
-    coolBodies = coolBodies.map(b => {
-      if (b.isStatic || b.id === state.activeId) return b;
-      if (checkLanding(b, coolStatics)) {
-        return { ...b, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 };
-      }
-      return b;
-    });
-    return { ...state, bodies: coolBodies, clearCooldown: state.clearCooldown - safeDt };
+export function nextTick(state: PhysicsState): PhysicsState {
+  if (state.isGameOver || !state.currentPiece) return state;
+
+  // === 1단계: lockedPieces 중력 적용 ===
+  const updatedLockedPieces: Tetromino[] = [];
+  for (const p of state.lockedPieces) {
+    if (isUnsupported(p, state.lockedPieces)) {
+      const boardForPhysics = buildBoardFromPieces(state.lockedPieces.filter((pp) => pp !== p));
+      const fallen = applyGravity(p, boardForPhysics);
+      updatedLockedPieces.push(fallen);
+    } else {
+      updatedLockedPieces.push(p);
+    }
   }
 
-  const dropSpeed = DROP_SPEED + (state.level - 1) * 7;
+  const updatedBoard = buildBoardFromPieces(updatedLockedPieces);
 
-  // 키 입력 → active body velocity 조정
-  let bodies = state.bodies.map(b => {
-    if (b.id !== state.activeId) return b;
-    let vel = { ...b.velocity };
-    let av = b.angularVelocity;
-    // 좌우 이동 (속도 캡 ±4 px/frame)
-    if (keys.left && vel.x > -4) vel.x -= 0.8;
-    if (keys.right && vel.x < 4) vel.x += 0.8;
-    if (!keys.left && !keys.right) vel.x *= 0.75; // 감쇠
-    // 회전 (각속도 캡 ±0.15 rad/frame)
-    if (keys.rotateLeft && av > -0.15) av -= 0.015;
-    if (keys.rotateRight && av < 0.15) av += 0.015;
-    // 소프트 드롭
-    const vyS = vel.y * 60; // px/frame → px/s
-    if (keys.down) {
-      if (vyS < 500) vel.y += 0.3;
-    } else if (vyS > dropSpeed) {
-      vel.y = Math.max(dropSpeed / 60, vel.y - 2000 * safeDt / 60);
-    }
-    return { ...b, velocity: vel, angularVelocity: av };
-  });
+  // === 2단계: currentPiece 낙하 ===
+  const piece = state.currentPiece;
+  const movedPiece = applyGravity(piece, updatedBoard);
 
-  // 물리 스텝
-  bodies = bodies.map(applyGravity);
-  bodies = bodies.map(integratePosition);
-  bodies = resolveBodyCollisions(bodies);
-  bodies = bodies.map(applyWallConstraints);
+  const isLanded =
+    movedPiece.vy === 0 &&
+    movedPiece.y === piece.y &&
+    checkCollision({ ...movedPiece, y: movedPiece.y + 1 }, updatedBoard);
 
-  // 파편 착지 처리 (라인 클리어 집계 위해 필수)
-  const allStaticsNow = bodies.filter(b => b.isStatic);
-  bodies = bodies.map(b => {
-    if (b.isStatic || b.id === state.activeId) return b;
-    if (checkLanding(b, allStaticsNow)) {
-      return { ...b, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 };
-    }
-    return b;
-  });
+  if (isLanded) {
+    const newLockedPieces = [...updatedLockedPieces, piece];
+    const lockedBoard = buildBoardFromPieces(newLockedPieces);
+    const { board: clearedBoard, linesCleared } = clearLines(lockedBoard);
+    const finalLockedPieces = removeLineFromPieces(newLockedPieces, lockedBoard, clearedBoard);
 
-  // 착지 판정
-  let lockTimer = state.lockTimer;
-  const active = bodies.find(b => b.id === state.activeId);
-  const statics = bodies.filter(b => b.isStatic);
-  const landed = active ? checkLanding(active, statics) : false;
+    const scoreTable = [0, 100, 300, 500, 800];
+    const addScore = (scoreTable[linesCleared] ?? linesCleared * 200) * state.level;
+    const totalLines = state.linesCleared + linesCleared;
+    const newLevel = Math.floor(totalLines / 10) + 1;
 
-  let { activeId, nextKind, canHold, score, linesCleared, level, clearCooldown } = state;
+    const newCurrent = state.nextPiece;
+    const newNext = createRandomPiece(BOARD_COLS);
+    const isGameOver = newCurrent
+      ? checkCollision({ ...newCurrent, y: 0 }, clearedBoard)
+      : true;
 
-  if (landed) {
-    if (lockTimer === 0) lockTimer = LOCK_DELAY;
-    else lockTimer -= safeDt;
+    return {
+      board: clearedBoard,
+      lockedPieces: finalLockedPieces,
+      currentPiece: isGameOver ? null : newCurrent,
+      nextPiece: newNext,
+      heldPiece: state.heldPiece,
+      canHold: true,
+      score: state.score + addScore,
+      level: newLevel,
+      isGameOver,
+      linesCleared: totalLines,
+    };
+  }
 
-    if (lockTimer <= 0) {
-      // 블록 고정
-      bodies = bodies.map(b =>
-        b.id === activeId
-          ? { ...b, isStatic: true, isActive: false, velocity: { x: 0, y: 0 }, angularVelocity: 0 }
-          : b
-      );
-
-      // 라인 클리어 체크
-      const { linesToClear, lineAreas } = checkLineDensity(bodies, BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE);
-      if (linesToClear.length > 0) {
-        console.log('[LineClear]', linesToClear.length, 'lines, rows:', linesToClear);
-        bodies = removeLinesFromBodies(bodies, linesToClear, CELL_SIZE);
-        const sum = linesToClear.reduce((s, r) => s + (lineAreas[r] ?? 0), 0);
-        const avg = Math.min(1, sum / linesToClear.length / 10240);
-        score += Math.ceil((linesToClear.length * 3) ** (avg ** 10) * 20 + linesToClear.length ** 2 * 40);
-        linesCleared += linesToClear.length;
-        level = Math.floor(linesCleared / 10) + 1;
-        clearCooldown = CLEAR_COOLDOWN;
-      }
-
-      // 새 블록 생성
-      const newActive = createTetromino(nextKind, SPAWN_X, SPAWN_Y);
-      bodies = [...bodies, newActive];
-      activeId = newActive.id;
-      nextKind = Math.ceil(Math.random() * 7);
-      canHold = true;
-
-      // 게임 오버 체크: static body가 천장 위로 올라갔는지
-      const isGameOver = bodies
-        .filter(b => b.isStatic && b.kind > 0)
-        .some(b => {
-          const allV = getAllWorldVerts(b).flat();
-          return Math.min(...allV.map(v => v.y)) < CELL_SIZE;
-        });
-
-      return {
-        ...state, bodies, activeId, nextKind, canHold,
-        score, linesCleared, level, clearCooldown,
-        isGameOver, lockTimer: 0,
-      };
-    }
-  } // lockTimer 리셋 삭제 — 충돌 보정으로 순간적으로 떠도 타이머 유지
-
-  return { ...state, bodies, lockTimer, score, linesCleared, level, clearCooldown };
-}
-
-// ── 즉시 액션들 ────────────────────────────────────────────
-
-/** 90도 즉시 회전 (↑ 키) */
-export function snapRotate(state: TetrisState): TetrisState {
   return {
     ...state,
-    bodies: state.bodies.map(b =>
-      b.id === state.activeId
-        ? { ...b, angle: b.angle + Math.PI / 2, angularVelocity: 0 }
-        : b
-    ),
+    board: updatedBoard,
+    lockedPieces: updatedLockedPieces,
+    currentPiece: movedPiece,
   };
 }
 
-/** 하드 드롭 (Space) — step-by-step 충돌 체크로 정확한 착지 */
-export function hardDrop(state: TetrisState): TetrisState {
-  if (state.activeId === null) return state;
-  const active = state.bodies.find(b => b.id === state.activeId);
-  if (!active) return state;
+// ------------------------------------------------------------
+// movePiece
+// ------------------------------------------------------------
 
-  const statics = state.bodies.filter(b => b.isStatic);
-  const step = 2;
-  let testBody = { ...active, position: { ...active.position } };
+export function movePiece(state: PhysicsState, direction: 'left' | 'right'): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+  const dx = direction === 'left' ? -1 : 1;
+  const moved: Tetromino = { ...state.currentPiece, x: state.currentPiece.x + dx };
+  if (checkCollision(moved, state.board)) return state;
+  return { ...state, currentPiece: moved };
+}
 
-  // step씩 내리면서 충돌 직전까지 이동
+// ------------------------------------------------------------
+// hardDrop
+// ------------------------------------------------------------
+
+export function hardDrop(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+  let piece = { ...state.currentPiece };
+  let dropDistance = 0;
+
   while (true) {
-    const nextPos = { x: testBody.position.x, y: testBody.position.y + step };
-    const nextBody = { ...testBody, position: nextPos };
-
-    // 바닥 체크
-    const testVerts = nextBody.parts.flatMap(p => getWorldVerts(p, nextPos, nextBody.angle));
-    if (Math.max(...testVerts.map(v => v.y)) >= BOARD_HEIGHT) break;
-
-    // static body 충돌 체크
-    let hit = false;
-    for (const s of statics) {
-      for (const pa of nextBody.parts) {
-        const wva = getWorldVerts(pa, nextPos, nextBody.angle);
-        for (const pb of s.parts) {
-          const wvb = getWorldVerts(pb, s.position, s.angle);
-          if (checkCollision(wva, wvb).colliding) { hit = true; break; }
-        }
-        if (hit) break;
-      }
-      if (hit) break;
-    }
-    if (hit) break;
-
-    testBody = nextBody;
+    const next: Tetromino = { ...piece, y: piece.y + 1 };
+    if (checkCollision(next, state.board)) break;
+    piece = next;
+    dropDistance++;
   }
 
-  // 즉시 착지 (lockTimer 스킵)
-  const landedBody = {
-    ...testBody,
-    isStatic: true,
-    isActive: false,
-    velocity: { x: 0, y: 0 },
-    angularVelocity: 0,
-  };
+  const newLockedPieces = [...state.lockedPieces, piece];
+  const lockedBoard = buildBoardFromPieces(newLockedPieces);
+  const { board: clearedBoard, linesCleared } = clearLines(lockedBoard);
+  const finalLockedPieces = removeLineFromPieces(newLockedPieces, lockedBoard, clearedBoard);
 
-  let bodies = state.bodies.map(b => b.id === state.activeId ? landedBody : b);
+  const scoreTable = [0, 100, 300, 500, 800];
+  const addScore = ((scoreTable[linesCleared] ?? linesCleared * 200) * state.level) + dropDistance * 2;
+  const totalLines = state.linesCleared + linesCleared;
+  const newLevel = Math.floor(totalLines / 10) + 1;
 
-  // 라인 클리어
-  let { score, linesCleared, level } = state;
-  const { linesToClear, lineAreas } = checkLineDensity(bodies, BOARD_HEIGHT, BOARD_WIDTH, CELL_SIZE);
-  let clearCooldown = state.clearCooldown;
-
-  if (linesToClear.length > 0) {
-    console.log('[HardDrop LineClear]', linesToClear);
-    bodies = removeLinesFromBodies(bodies, linesToClear, CELL_SIZE);
-    const sum = linesToClear.reduce((s, r) => s + (lineAreas[r] ?? 0), 0);
-    const avg = Math.min(1, sum / linesToClear.length / 10240);
-    score += Math.ceil((linesToClear.length * 3) ** (avg ** 10) * 20 + linesToClear.length ** 2 * 40);
-    linesCleared += linesToClear.length;
-    level = Math.floor(linesCleared / 10) + 1;
-    clearCooldown = CLEAR_COOLDOWN;
-  }
-
-  // 새 블록 생성
-  const newActive = createTetromino(state.nextKind, SPAWN_X, SPAWN_Y);
-  bodies = [...bodies, newActive];
+  const newCurrent = state.nextPiece;
+  const newNext = createRandomPiece(BOARD_COLS);
+  const isGameOver = newCurrent ? checkCollision(newCurrent, clearedBoard) : true;
 
   return {
-    ...state,
-    bodies,
-    activeId: newActive.id,
-    nextKind: Math.ceil(Math.random() * 7),
+    board: clearedBoard,
+    lockedPieces: finalLockedPieces,
+    currentPiece: isGameOver ? null : newCurrent,
+    nextPiece: newNext,
+    heldPiece: state.heldPiece,
     canHold: true,
-    score,
-    linesCleared,
-    level,
-    clearCooldown,
-    lockTimer: 0,
+    score: state.score + addScore,
+    level: newLevel,
+    isGameOver,
+    linesCleared: totalLines,
   };
 }
 
-/** 블록 보관 (R 키) */
-export function holdPiece(state: TetrisState): TetrisState {
-  if (!state.canHold || state.activeId === null) return state;
-  const active = state.bodies.find(b => b.id === state.activeId);
-  if (!active) return state;
+// ------------------------------------------------------------
+// holdPiece
+// ------------------------------------------------------------
 
-  const bodies = state.bodies.filter(b => b.id !== state.activeId);
-  const newKind = state.heldKind ?? state.nextKind;
-  const newActive = createTetromino(newKind, BOARD_WIDTH / 2, CELL_SIZE * 1.5);
+export function holdPiece(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver || !state.canHold) return state;
+
+  const pieceToHold: Tetromino = {
+    ...state.currentPiece,
+    x: Math.floor(BOARD_COLS / 2) - Math.floor(state.currentPiece.shape[0].length / 2),
+    y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
+  };
+
+  let newCurrent: Tetromino | null;
+  let newNext = state.nextPiece;
+
+  if (state.heldPiece === null) {
+    newCurrent = state.nextPiece;
+    newNext = createRandomPiece(BOARD_COLS);
+  } else {
+    newCurrent = {
+      ...state.heldPiece,
+      x: Math.floor(BOARD_COLS / 2) - Math.floor(state.heldPiece.shape[0].length / 2),
+      y: 0, angle: 0, vx: 0, vy: 0, angularVelocity: 0,
+    };
+  }
+
+  const isGameOver = newCurrent ? checkCollision(newCurrent, state.board) : true;
 
   return {
     ...state,
-    bodies: [...bodies, newActive],
-    activeId: newActive.id,
-    heldKind: active.kind,
-    nextKind: state.heldKind !== null ? state.nextKind : Math.ceil(Math.random() * 7),
+    currentPiece: isGameOver ? null : newCurrent,
+    nextPiece: newNext,
+    heldPiece: pieceToHold,
     canHold: false,
+    isGameOver,
   };
+}
+
+// ------------------------------------------------------------
+// rotatePieceInState / snapRotateInState / softDrop
+// ------------------------------------------------------------
+
+export function rotatePieceInState(state: PhysicsState, direction: RotateDirection): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+  return { ...state, currentPiece: engineRotate(state.currentPiece, direction) };
+}
+
+export function snapRotateInState(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+  const rotated = engineSnapRotate(state.currentPiece, state.board);
+  if (rotated === state.currentPiece) return state;
+  return { ...state, currentPiece: rotated };
+}
+
+export function softDrop(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+  const dropped: Tetromino = {
+    ...state.currentPiece,
+    y: state.currentPiece.y + 1,
+    vy: 1,
+  };
+  if (checkCollision(dropped, state.board)) return state;
+  return { ...state, currentPiece: dropped, score: state.score + 1 };
 }
