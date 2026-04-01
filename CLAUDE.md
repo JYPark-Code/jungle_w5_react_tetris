@@ -44,14 +44,14 @@ import type { VNode, UseStateFn, PhysicsState } from '../../contracts';
 ```
 src/
 ├── core/
-│   ├── vdom.ts          # 팀원 A
-│   ├── diff.ts          # 팀원 A
-│   ├── patch.ts         # 팀원 A
-│   ├── component.ts     # 팀원 A
-│   └── hooks.ts         # 팀원 B
-├── physics/             # 지용님
-├── metrics/             # 지용님
-└── app/                 # 지용님 (통합)
+│   ├── vdom.ts          # 민철
+│   ├── diff.ts          # 민철
+│   ├── patch.ts         # 민철
+│   ├── component.ts     # 민철
+│   └── hooks.ts         # 명석
+├── physics/             # 지용
+├── metrics/             # 지용
+└── app/                 # 지용 (통합)
 contracts.ts             # 공용 인터페이스 (수정 금지)
 ```
 
