@@ -369,7 +369,9 @@ body {
 }
 
 .flamegraph-canvas-wrapper {
-  display: inline-block;
+  width: 100%;
+  display: flex;
+  justify-content: center;
   margin: 16px 0;
 }
 
@@ -384,8 +386,16 @@ body {
   color: #4ecdc4;
 }
 
-/* 탭 콘텐츠 내부 스크롤용 wrapper */
+/* 탭 콘텐츠 내부 wrapper */
 .tab-inner {
-  max-width: 900px;
+  max-width: 1200px;
   width: 100%;
+  margin: 0 auto;
+}
+
+/* 바 차트 섹션 중앙 정렬 */
+.bar-chart-section {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
 }

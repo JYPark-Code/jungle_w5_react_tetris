@@ -110,37 +110,32 @@ export function checkWallCollision(
   boardWidth: number,
   boardHeight: number
 ): { body: RigidBody; landed: boolean } {
-  const RESTITUTION = 0.3; // 반발 계수 — 벽에 부딪힐 때 속도 감쇠 비율
-  const vertices = getWorldVertices(body);
-
   let newBody = { ...body, position: { ...body.position }, velocity: { ...body.velocity } };
   let landed = false;
 
-  // 각 꼭짓점에 대해 경계 체크
-  for (const v of vertices) {
-    // 왼쪽 벽
-    if (v.x < 0) {
-      const penetration = -v.x;
-      newBody.position.x += penetration;
-      newBody.velocity.x = Math.abs(newBody.velocity.x) * RESTITUTION;
-    }
-    // 오른쪽 벽
-    if (v.x > boardWidth) {
-      const penetration = v.x - boardWidth;
-      newBody.position.x -= penetration;
-      newBody.velocity.x = -Math.abs(newBody.velocity.x) * RESTITUTION;
-    }
-    // 바닥
-    if (v.y > boardHeight) {
-      const penetration = v.y - boardHeight;
-      newBody.position.y -= penetration;
-      newBody.velocity.y = -Math.abs(newBody.velocity.y) * RESTITUTION;
-      newBody.velocity.x *= 0.7; // 바닥 마찰
-      // 속도가 충분히 작으면 착지
-      if (Math.abs(newBody.velocity.y) < 30) {
-        landed = true;
-      }
-    }
+  // 꼭짓점 전체 기반 경계 체크 (min/max로 한번에 보정)
+  const vertices = getWorldVertices(newBody);
+  const maxX = Math.max(...vertices.map((v) => v.x));
+  const minX = Math.min(...vertices.map((v) => v.x));
+  const maxY = Math.max(...vertices.map((v) => v.y));
+
+  // 왼쪽 벽 — 정확히 맞닿도록
+  if (minX < 0) {
+    newBody.position.x -= minX;
+    newBody.velocity.x = Math.max(0, newBody.velocity.x);
+  }
+
+  // 오른쪽 벽 — 정확히 맞닿도록
+  if (maxX > boardWidth) {
+    newBody.position.x -= (maxX - boardWidth);
+    newBody.velocity.x = Math.min(0, newBody.velocity.x);
+  }
+
+  // 바닥 — 정확히 바닥에 닿도록
+  if (maxY > boardHeight) {
+    newBody.position.y -= (maxY - boardHeight);
+    newBody.velocity.y = 0;
+    landed = true;
   }
 
   return { body: newBody, landed };
@@ -286,14 +281,24 @@ export function resolveCollision(
 
   for (const stat of statics) {
     const collision = checkBodyCollision(result, stat);
-    if (collision.colliding && collision.mtv && collision.depth) {
+    if (collision.colliding && collision.mtv && collision.depth && collision.depth > 0) {
       hadCollision = true;
 
-      // 위치 보정: MTV 반대 방향으로 밀어냄 (약간 더 밀어서 관통 방지)
+      // 위치 보정: MTV 반대 방향으로 정확히 밀어냄
       result.position = {
-        x: result.position.x - collision.mtv.x * (collision.depth + 0.5),
-        y: result.position.y - collision.mtv.y * (collision.depth + 0.5),
+        x: result.position.x - collision.mtv.x * collision.depth,
+        y: result.position.y - collision.mtv.y * collision.depth,
       };
+
+      // 보정 후 재확인 — 아직 겹치면 추가로 1px씩 밀기
+      for (let i = 0; i < 10; i++) {
+        const still = checkBodyCollision(result, stat);
+        if (!still.colliding) break;
+        result.position = {
+          x: result.position.x - collision.mtv.x,
+          y: result.position.y - collision.mtv.y,
+        };
+      }
 
       // 속도 반전 + 감쇠
       const dot = v2dot(result.velocity, collision.mtv);
@@ -304,7 +309,6 @@ export function resolveCollision(
         };
       }
 
-      // 각속도도 감쇠
       result.angularVelocity = (result.angularVelocity ?? active.angularVelocity) * 0.7;
     }
   }

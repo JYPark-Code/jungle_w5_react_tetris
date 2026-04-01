@@ -69,32 +69,32 @@ const L_PIECE: TetrominoDef = {
   color: '#f0a000',
 };
 
-/** S 블록 */
+/** S 블록 — 외곽선 (중복 꼭짓점 제거) */
 const S_PIECE: TetrominoDef = {
   localVertices: [
-    { x: -S - H, y: -H },
-    { x: -H, y: -H },
-    { x: -H, y: -S - H },
-    { x: S + H, y: -S - H },
-    { x: S + H, y: H },
-    { x: H, y: H },
-    { x: H, y: -H },
-    { x: -S - H, y: -H },
+    { x: -S - H, y: 0 },
+    { x: -S - H, y: -S },
+    { x: -H, y: -S },
+    { x: -H, y: -2 * S },
+    { x: S + H, y: -2 * S },
+    { x: S + H, y: -S },
+    { x: H, y: -S },
+    { x: H, y: 0 },
   ],
   color: '#00f000',
 };
 
-/** Z 블록 */
+/** Z 블록 — 외곽선 */
 const Z_PIECE: TetrominoDef = {
   localVertices: [
-    { x: -S - H, y: -S - H },
-    { x: H, y: -S - H },
-    { x: H, y: -H },
-    { x: S + H, y: -H },
-    { x: S + H, y: H },
-    { x: -H, y: H },
-    { x: -H, y: -H },
-    { x: -S - H, y: -H },
+    { x: -S - H, y: -2 * S },
+    { x: H, y: -2 * S },
+    { x: H, y: -S },
+    { x: S + H, y: -S },
+    { x: S + H, y: 0 },
+    { x: -H, y: 0 },
+    { x: -H, y: -S },
+    { x: -S - H, y: -S },
   ],
   color: '#f00000',
 };

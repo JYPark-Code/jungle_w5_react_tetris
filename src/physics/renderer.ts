@@ -58,30 +58,25 @@ function drawBody(ctx: CanvasRenderingContext2D, body: RigidBody): void {
 
   ctx.save();
 
-  // 블록 중심으로 이동 후 회전
-  ctx.translate(position.x, position.y);
+  // subpixel 아티팩트 방지: 정수 좌표로 이동
+  ctx.translate(Math.round(position.x), Math.round(position.y));
   ctx.rotate(angle);
 
-  // 다각형 경로 그리기
+  // 다각형 경로 — 정수화
   ctx.beginPath();
-  ctx.moveTo(localVertices[0].x, localVertices[0].y);
+  ctx.moveTo(Math.round(localVertices[0].x), Math.round(localVertices[0].y));
   for (let i = 1; i < localVertices.length; i++) {
-    ctx.lineTo(localVertices[i].x, localVertices[i].y);
+    ctx.lineTo(Math.round(localVertices[i].x), Math.round(localVertices[i].y));
   }
   ctx.closePath();
 
-  // 채우기
+  // 1. 먼저 fill
   ctx.fillStyle = color;
   ctx.fill();
 
-  // 테두리 (입체감)
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  // 2. 테두리는 한 번만 (중복 stroke 제거)
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
   ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // 어두운 테두리 (그림자)
-  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-  ctx.lineWidth = 1.5;
   ctx.stroke();
 
   ctx.restore();
