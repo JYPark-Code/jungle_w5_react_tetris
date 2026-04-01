@@ -2,7 +2,7 @@
 // renderer.ts — Canvas 렌더링 (각 Part를 개별 다각형으로)
 // ============================================================
 
-import { Body, getAllWorldVerts, CELL_SIZE, BOARD_WIDTH, BOARD_HEIGHT, TETROMINO_COLORS } from './engine';
+import { Body, getAllWorldVerts, getWorldVerts, createTetromino, CELL_SIZE, BOARD_WIDTH, BOARD_HEIGHT, TETROMINO_COLORS } from './engine';
 
 /** 메인 보드 렌더링 */
 export function renderFrame(
@@ -55,7 +55,7 @@ export function renderFrame(
   }
 }
 
-/** Next/Hold 미리보기 */
+/** Next/Hold 미리보기 — 실제 테트로미노 모양 렌더링 */
 export function renderPreview(
   canvas: HTMLCanvasElement,
   kind: number | null,
@@ -66,7 +66,35 @@ export function renderPreview(
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!kind) return;
-  // 간단한 사각형 미리보기
+
+  // 임시 body로 모양 계산
+  const dummy = createTetromino(kind, 0, 0);
+  const allVerts = dummy.parts.flatMap(p => getWorldVerts(p, dummy.position, 0));
+
+  // 바운딩 박스
+  const minX = Math.min(...allVerts.map(v => v.x));
+  const maxX = Math.max(...allVerts.map(v => v.x));
+  const minY = Math.min(...allVerts.map(v => v.y));
+  const maxY = Math.max(...allVerts.map(v => v.y));
+  const w = maxX - minX || 1, h = maxY - minY || 1;
+
+  const padding = 10;
+  const scale = Math.min(
+    (canvas.width - padding * 2) / w,
+    (canvas.height - padding * 2) / h,
+  );
+  const offsetX = canvas.width / 2 - (minX + w / 2) * scale;
+  const offsetY = canvas.height / 2 - (minY + h / 2) * scale;
+
   ctx.fillStyle = colors[kind] ?? '#888';
-  ctx.fillRect(canvas.width / 4, canvas.height / 4, canvas.width / 2, canvas.height / 2);
+  for (const part of dummy.parts) {
+    const verts = getWorldVerts(part, dummy.position, 0);
+    ctx.beginPath();
+    ctx.moveTo(verts[0].x * scale + offsetX, verts[0].y * scale + offsetY);
+    for (let i = 1; i < verts.length; i++) {
+      ctx.lineTo(verts[i].x * scale + offsetX, verts[i].y * scale + offsetY);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
 }

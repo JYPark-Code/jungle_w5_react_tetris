@@ -96,6 +96,16 @@ export function nextTick(state: TetrisState, dt: number, keys: Keys): TetrisStat
   bodies = resolveBodyCollisions(bodies);
   bodies = bodies.map(applyWallConstraints);
 
+  // 파편 착지 처리 (라인 클리어 집계 위해 필수)
+  const allStaticsNow = bodies.filter(b => b.isStatic);
+  bodies = bodies.map(b => {
+    if (b.isStatic || b.id === state.activeId) return b;
+    if (checkLanding(b, allStaticsNow)) {
+      return { ...b, isStatic: true, velocity: { x: 0, y: 0 }, angularVelocity: 0 };
+    }
+    return b;
+  });
+
   // 착지 판정
   let lockTimer = state.lockTimer;
   const active = bodies.find(b => b.id === state.activeId);

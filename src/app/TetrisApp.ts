@@ -11,6 +11,9 @@ import { renderFrame, renderPreview } from '../physics/renderer';
 import { TETROMINO_COLORS } from '../physics/engine';
 import type { VNode } from '../../contracts';
 
+// 모듈 레벨 전역 키 상태 (useState에서 분리 → useEffect deps에서 제거)
+const _keys: Keys = { left: false, right: false, rotateLeft: false, rotateRight: false, down: false };
+
 export const TetrisAppFn = (props: {
   boardCanvas: HTMLCanvasElement | null;
   nextCanvas: HTMLCanvasElement | null;
@@ -19,9 +22,6 @@ export const TetrisAppFn = (props: {
   const [gameState, setGameState] = useState<TetrisState>(initTetrisState());
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [keys, setKeys] = useState<Keys>({
-    left: false, right: false, rotateLeft: false, rotateRight: false, down: false,
-  });
 
   // useMemo: 정적 블록 수 캐싱 (bodies 변경 시만)
   const staticCount = useMemo(
@@ -67,24 +67,24 @@ export const TetrisAppFn = (props: {
     const loop = (t: number) => {
       const dt = last > 0 ? Math.min((t - last) / 1000, 0.05) : 1 / 60;
       last = t;
-      setGameState((prev: TetrisState) => nextTick(prev, dt, keys));
+      setGameState((prev: TetrisState) => nextTick(prev, dt, _keys));
       id = requestAnimationFrame(loop);
     };
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
-  }, [isRunning, isPaused, keys]);
+  }, [isRunning, isPaused]); // keys deps 제거 → 키 입력 시 루프 재시작 방지
 
   // useEffect: 키보드 이벤트 (cleanup으로 리스너 해제)
   useEffect(() => {
     if (!isRunning || isPaused) return;
     const pressed = new Set<string>();
-    const update = () => setKeys({
-      left: pressed.has('ArrowLeft'),
-      right: pressed.has('ArrowRight'),
-      rotateLeft: pressed.has('q') || pressed.has('Q'),
-      rotateRight: pressed.has('e') || pressed.has('E'),
-      down: pressed.has('ArrowDown'),
-    });
+    const update = () => {
+      _keys.left = pressed.has('ArrowLeft');
+      _keys.right = pressed.has('ArrowRight');
+      _keys.rotateLeft = pressed.has('q') || pressed.has('Q');
+      _keys.rotateRight = pressed.has('e') || pressed.has('E');
+      _keys.down = pressed.has('ArrowDown');
+    };
     const onDown = (e: KeyboardEvent) => {
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
       pressed.add(e.key);
@@ -132,7 +132,7 @@ export const TetrisAppFn = (props: {
       }, '▶ START'),
       createVNode('button', {
         class: 'game-btn pause',
-        onclick: () => { if (isRunning) setIsPaused((p: boolean) => !p); },
+        onclick: () => setIsPaused((p: boolean) => !p),
       }, isPaused ? '▶ RESUME' : '⏸ PAUSE'),
     ),
   );

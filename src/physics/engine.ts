@@ -220,7 +220,7 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
     ...b, position: { ...b.position }, velocity: { ...b.velocity },
   }));
   // 3회 반복으로 깊은 겹침도 완전 해소
-  for (let iter = 0; iter < 3; iter++) {
+  for (let iter = 0; iter < 1; iter++) {
   for (let i = 0; i < result.length; i++) {
     for (let j = i + 1; j < result.length; j++) {
       const a = result[i], b = result[j];
@@ -241,8 +241,8 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
           if (!col.colliding || col.depth < 0.01) continue;
           // 위치 보정
           const corr = v2.scale(col.normal, col.depth);
-          if (!a.isStatic) result[i].position = v2.sub(result[i].position, v2.scale(corr, 0.5));
-          if (!b.isStatic) result[j].position = v2.add(result[j].position, v2.scale(corr, 0.5));
+          if (!a.isStatic) result[i].position = v2.sub(result[i].position, v2.scale(corr, 0.08));
+          if (!b.isStatic) result[j].position = v2.add(result[j].position, v2.scale(corr, 0.08));
           // 충격량 계산 (impulse)
           const rel = v2.sub(result[i].velocity, result[j].velocity);
           const vn = v2.dot(rel, col.normal);
@@ -262,23 +262,26 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
   return result;
 }
 
-/** 착지 판정: 바닥 또는 static body 위에 있는지 */
+/** 착지 판정: 1px 아래 가상 이동 후 SAT 충돌 여부로 판정 */
 export function checkLanding(body: Body, statics: Body[]): boolean {
   if (body.isStatic) return false;
-  const verts = body.parts.flatMap(p => getWorldVerts(p, body.position, body.angle));
-  const maxY = Math.max(...verts.map(v => v.y));
-  const minX = Math.min(...verts.map(v => v.x));
-  const maxX = Math.max(...verts.map(v => v.x));
-  // 바닥 접촉
-  if (maxY >= BOARD_HEIGHT - 1) return true;
-  // static body 위
+
+  // 1px 아래 테스트 위치
+  const testPos: Vec2 = { x: body.position.x, y: body.position.y + 1 };
+
+  // 바닥 체크
+  const testVerts = body.parts.flatMap(p => getWorldVerts(p, testPos, body.angle));
+  if (Math.max(...testVerts.map(v => v.y)) >= BOARD_HEIGHT) return true;
+
+  // static body와 SAT 충돌 체크
   for (const s of statics) {
-    const sv = s.parts.flatMap(p => getWorldVerts(p, s.position, s.angle));
-    const sMinY = Math.min(...sv.map(v => v.y));
-    const sMinX = Math.min(...sv.map(v => v.x));
-    const sMaxX = Math.max(...sv.map(v => v.x));
-    const xOverlap = Math.min(maxX, sMaxX) - Math.max(minX, sMinX);
-    if (xOverlap > 2 && Math.abs(maxY - sMinY) < 4) return true;
+    for (const pa of body.parts) {
+      const wva = getWorldVerts(pa, testPos, body.angle);
+      for (const pb of s.parts) {
+        const wvb = getWorldVerts(pb, s.position, s.angle);
+        if (checkCollision(wva, wvb).colliding) return true;
+      }
+    }
   }
   return false;
 }
