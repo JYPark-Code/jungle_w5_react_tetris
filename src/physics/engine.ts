@@ -12,7 +12,7 @@ export const BOARD_HEIGHT = CELL_SIZE * BOARD_ROWS;  // 576px
 export const GRAVITY = 0.5;       // 중력 가속도 (px/frame²)
 export const DROP_SPEED = 100;    // 기본 낙하 속도 (px/s)
 export const FRICTION_AIR = 0.05; // 공기 마찰
-export const RESTITUTION = 0.05;  // 반발 계수
+export const RESTITUTION = 0.0;   // 반발 계수 (테트리스는 튕김 없음)
 export const MAX_VY = 15;         // 최대 y 속도 (px/frame)
 
 /** 2D 벡터 */
@@ -178,14 +178,15 @@ export function createTetromino(kind: number, x: number, y: number): Body {
 /** 중력 + 공기 마찰 적용 */
 export function applyGravity(body: Body): Body {
   if (body.isStatic) return body;
-  return {
-    ...body,
-    velocity: {
-      x: body.velocity.x * (1 - body.frictionAir),
-      y: Math.min(body.velocity.y + GRAVITY, MAX_VY),
-    },
-    angularVelocity: body.angularVelocity * 0.9,
-  };
+  let vx = body.velocity.x * (1 - body.frictionAir);
+  let vy = Math.min(body.velocity.y + GRAVITY, MAX_VY);
+  let av = body.angularVelocity * 0.9;
+
+  // 매우 작은 속도는 0으로 snap (sleeping — 무한 미세 진동 방지)
+  if (Math.abs(vx) < 0.05) vx = 0;
+  if (Math.abs(av) < 0.001) av = 0;
+
+  return { ...body, velocity: { x: vx, y: vy }, angularVelocity: av };
 }
 
 /** 위치/각도 적분 (velocity → position) */
@@ -209,7 +210,7 @@ export function applyWallConstraints(body: Body): Body {
   const maxY = Math.max(...allV.map(v => v.y));
   if (minX < 0) { pos.x -= minX; if (vel.x < 0) vel.x = 0; }
   if (maxX > BOARD_WIDTH) { pos.x -= maxX - BOARD_WIDTH; if (vel.x > 0) vel.x = 0; }
-  if (maxY > BOARD_HEIGHT) { pos.y -= maxY - BOARD_HEIGHT; vel.y = 0; }
+  if (maxY > BOARD_HEIGHT) { pos.y -= maxY - BOARD_HEIGHT; vel.y = 0; vel.x *= 0.3; }
   return { ...body, position: pos, velocity: vel };
 }
 
@@ -218,6 +219,8 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
   const result = bodies.map(b => ({
     ...b, position: { ...b.position }, velocity: { ...b.velocity },
   }));
+  // 3회 반복으로 깊은 겹침도 완전 해소
+  for (let iter = 0; iter < 3; iter++) {
   for (let i = 0; i < result.length; i++) {
     for (let j = i + 1; j < result.length; j++) {
       const a = result[i], b = result[j];
@@ -255,6 +258,7 @@ export function resolveBodyCollisions(bodies: Body[]): Body[] {
       }
     }
   }
+  } // iter 반복 끝
   return result;
 }
 

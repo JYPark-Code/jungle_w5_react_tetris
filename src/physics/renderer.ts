@@ -24,27 +24,33 @@ export function renderFrame(
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(BOARD_WIDTH, y); ctx.stroke();
   }
 
-  // 모든 body 렌더링 (각 Part 개별)
+  // 모든 body 렌더링 — stroke 없이 fill만 (내부 대각선 제거)
   for (const body of bodies) {
     if (body.kind === 0) continue;
     const isActive = body.id === activeId;
-    for (const verts of getAllWorldVerts(body)) {
-      // 중심에서 5% 확장 (시각적 틈 제거)
-      const cx = verts.reduce((s, v) => s + v.x, 0) / verts.length;
-      const cy = verts.reduce((s, v) => s + v.y, 0) / verts.length;
-      const ev = verts.map(v => ({ x: cx + (v.x - cx) * 1.05, y: cy + (v.y - cy) * 1.05 }));
+    const allPartVerts = getAllWorldVerts(body);
 
-      ctx.save();
+    // fill만 (stroke 없음 → 내부 경계선 사라짐)
+    ctx.fillStyle = body.color;
+    for (const verts of allPartVerts) {
       ctx.beginPath();
-      ctx.moveTo(ev[0].x, ev[0].y);
-      for (let i = 1; i < ev.length; i++) ctx.lineTo(ev[i].x, ev[i].y);
+      ctx.moveTo(verts[0].x, verts[0].y);
+      for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y);
       ctx.closePath();
-      ctx.fillStyle = body.color;
       ctx.fill();
-      ctx.strokeStyle = isActive ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.3)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.restore();
+    }
+
+    // active 블록만 외곽 흰색 테두리
+    if (isActive) {
+      for (const verts of allPartVerts) {
+        ctx.beginPath();
+        ctx.moveTo(verts[0].x, verts[0].y);
+        for (let i = 1; i < verts.length; i++) ctx.lineTo(verts[i].x, verts[i].y);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
   }
 }

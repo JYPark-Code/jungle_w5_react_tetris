@@ -85,15 +85,18 @@ export function removeLinesFromBodies(bodies: Body[], rows: number[], cellSize: 
       }
       // 위쪽 조각만 유지
       const above = clip(verts, lineTop, true);
-      if (above.length < 3) return []; // 완전히 삭제
+      if (above.length < 3) return [];
       const cx = above.reduce((s, v) => s + v.x, 0) / above.length;
-      const cy = above.reduce((s, v) => s + v.y, 0) / above.length;
+      const rawCy = above.reduce((s, v) => s + v.y, 0) / above.length;
+      // 클리어 라인보다 2px 위 보장 (SAT impulse로 날아가는 것 방지)
+      const cy = Math.min(rawCy, lineTop - 2);
       return [{
         ...body,
         position: { x: cx, y: cy },
         parts: [{ localVerts: above.map(v => ({ x: v.x - cx, y: v.y - cy })) }],
         isStatic: false,
-        velocity: { x: 0, y: 0 },
+        velocity: { x: 0, y: 1 }, // 아래 방향 초기 속도 (위로 날아가기 방지)
+        angularVelocity: 0,
       }];
     });
   }
