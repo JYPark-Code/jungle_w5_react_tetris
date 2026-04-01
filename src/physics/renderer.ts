@@ -97,28 +97,37 @@ export function renderPreviewBody(canvas: HTMLCanvasElement, body: RigidBody | n
   const { localVertices, color } = body;
   if (localVertices.length < 3) return;
 
-  // 블록을 캔버스 중앙에 배치 (스케일 조정)
+  // 블록의 실제 중심을 계산하여 캔버스 정중앙에 배치
   const xs = localVertices.map((v) => v.x);
   const ys = localVertices.map((v) => v.y);
-  const bw = Math.max(...xs) - Math.min(...xs);
-  const bh = Math.max(...ys) - Math.min(...ys);
-  const scale = Math.min((canvas.width - 16) / bw, (canvas.height - 16) / bh, 1);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const bw = maxX - minX;
+  const bh = maxY - minY;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  const padding = 16;
+  const scale = Math.min((canvas.width - padding) / bw, (canvas.height - padding) / bh, 1);
 
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.scale(scale, scale);
 
+  // 블록 중심을 원점으로 보정
   ctx.beginPath();
-  ctx.moveTo(localVertices[0].x, localVertices[0].y);
+  ctx.moveTo(localVertices[0].x - centerX, localVertices[0].y - centerY);
   for (let i = 1; i < localVertices.length; i++) {
-    ctx.lineTo(localVertices[i].x, localVertices[i].y);
+    ctx.lineTo(localVertices[i].x - centerX, localVertices[i].y - centerY);
   }
   ctx.closePath();
 
   ctx.fillStyle = color;
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.restore();

@@ -120,15 +120,26 @@ export const applyGravity: ApplyGravityFn = (
   const FRICTION = 0.9;
   const ANGULAR_FRICTION = 0.85;
 
-  // 새 속도 계산 (최대 낙하 속도 제한)
+  // === 1단계: 회전만 먼저 적용 ===
+  // 회전이 충돌을 일으키면 회전만 취소 (vy는 유지)
+  const newAngularVelocity = piece.angularVelocity * ANGULAR_FRICTION;
+  const newAngle = piece.angle + newAngularVelocity;
+
+  const withRotation: Tetromino = {
+    ...piece,
+    angle: newAngle,
+    angularVelocity: newAngularVelocity,
+  };
+
+  const rotationCollides = checkCollision(withRotation, board);
+  const safeAngle = rotationCollides ? piece.angle : newAngle;
+  const safeAngularVelocity = rotationCollides ? 0 : newAngularVelocity;
+
+  // === 2단계: 낙하 적용 ===
   const newVy = Math.min(piece.vy + GRAVITY, MAX_VY);
   const newVx = piece.vx * FRICTION;
-  const newAngularVelocity = piece.angularVelocity * ANGULAR_FRICTION;
-
-  // 새 위치/각도 계산
   const newY = piece.y + newVy;
   const newX = piece.x + newVx;
-  const newAngle = piece.angle + newAngularVelocity;
 
   const moved: Tetromino = {
     ...piece,
@@ -136,17 +147,18 @@ export const applyGravity: ApplyGravityFn = (
     y: newY,
     vx: newVx,
     vy: newVy,
-    angle: newAngle,
-    angularVelocity: newAngularVelocity,
+    angle: safeAngle,
+    angularVelocity: safeAngularVelocity,
   };
 
-  // 충돌 시 이전 위치 유지, 속도 리셋
+  // 낙하 충돌 체크 (회전 제외, 위치만)
   if (checkCollision(moved, board)) {
     return {
       ...piece,
+      angle: safeAngle,
+      angularVelocity: safeAngularVelocity,
       vx: 0,
       vy: 0,
-      angularVelocity: 0,
     };
   }
 
@@ -170,7 +182,7 @@ export function rotatePiece(
   piece: Tetromino,
   direction: RotateDirection = 'cw'
 ): Tetromino {
-  const ANGULAR_IMPULSE = 45; // 회전 충격량 (도 단위)
+  const ANGULAR_IMPULSE = 15; // 회전 충격량 (도 단위) — 45는 너무 빨라 충돌 오작동
   const impulse = direction === 'cw' ? ANGULAR_IMPULSE : -ANGULAR_IMPULSE;
 
   return {

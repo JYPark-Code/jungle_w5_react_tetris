@@ -328,13 +328,13 @@ describe('rotatePieceInState', () => {
   it('시계방향(E키) 회전 시 angularVelocity가 양수여야 한다', () => {
     const state = createTestState();
     const result = rotatePieceInState(state, 'cw');
-    expect(result.currentPiece!.angularVelocity).toBe(45);
+    expect(result.currentPiece!.angularVelocity).toBe(15);
   });
 
   it('반시계방향(Q키) 회전 시 angularVelocity가 음수여야 한다', () => {
     const state = createTestState();
     const result = rotatePieceInState(state, 'ccw');
-    expect(result.currentPiece!.angularVelocity).toBe(-45);
+    expect(result.currentPiece!.angularVelocity).toBe(-15);
   });
 
   it('게임 오버 상태에서는 회전하지 않아야 한다', () => {

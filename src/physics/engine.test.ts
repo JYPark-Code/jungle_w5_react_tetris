@@ -121,26 +121,26 @@ describe('rotatePiece', () => {
   it('시계방향(cw) 회전 시 angularVelocity가 +45여야 한다', () => {
     const piece = createTestPiece();
     const result = rotatePiece(piece, 'cw');
-    expect(result.angularVelocity).toBe(45);
+    expect(result.angularVelocity).toBe(15);
   });
 
   it('반시계방향(ccw) 회전 시 angularVelocity가 -45여야 한다', () => {
     const piece = createTestPiece();
     const result = rotatePiece(piece, 'ccw');
-    expect(result.angularVelocity).toBe(-45);
+    expect(result.angularVelocity).toBe(-15);
   });
 
   it('기본값은 시계방향(cw)이어야 한다', () => {
     const piece = createTestPiece();
     const result = rotatePiece(piece);
-    expect(result.angularVelocity).toBe(45);
+    expect(result.angularVelocity).toBe(15);
   });
 
   it('연속 회전 시 angularVelocity가 누적되어야 한다', () => {
     const piece = createTestPiece();
     const once = rotatePiece(piece, 'cw');
     const twice = rotatePiece(once, 'cw');
-    expect(twice.angularVelocity).toBe(90);
+    expect(twice.angularVelocity).toBe(30);
   });
 
   it('CW + CCW가 상쇄되어야 한다', () => {

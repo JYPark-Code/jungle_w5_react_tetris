@@ -130,11 +130,11 @@ export function nextTick(state: PhysicsState): PhysicsState {
   const piece = state.currentPiece;
   const movedPiece = applyGravity(piece, state.board);
 
-  // 착지 판정: 바로 아래(1칸)에 충돌이 있는지 확인
-  const isLanded = checkCollision(
-    { ...piece, y: Math.floor(piece.y) + 1 },
-    state.board
-  );
+  // 착지 판정: vy=0이고 아래로 이동 시 충돌이 있을 때만
+  const isLanded =
+    movedPiece.vy === 0 &&
+    movedPiece.y === piece.y &&
+    checkCollision({ ...movedPiece, y: movedPiece.y + 1 }, state.board);
 
   if (isLanded) {
     // 블록을 보드에 고정
