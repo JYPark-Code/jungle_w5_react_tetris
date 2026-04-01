@@ -10,6 +10,7 @@ import type {
   CheckCollisionFn,
   CutPieceAtLineFn,
   ClearLinesFn,
+  RotateDirection,
   TetrominoShape,
 } from '../../contracts';
 
@@ -157,20 +158,48 @@ export const applyGravity: ApplyGravityFn = (
 
 /**
  * 블록에 회전 충격량(angular impulse)을 가한다.
- * 90도 단위가 아닌, 실제 각도(degree) 기반 회전.
+ * 360도 자유 회전 — Q키(반시계), E키(시계) 대응.
  *
  * 동작 원리:
- * 1. angularVelocity에 회전 충격량(45도/프레임)을 더한다.
+ * 1. direction에 따라 양(+cw) 또는 음(-ccw) 충격량을 부여한다.
  * 2. 이 값은 매 프레임 applyGravity에서 angle에 누적 적용된다.
  * 3. 마찰에 의해 점차 감속하여 자연스러운 회전 효과를 낸다.
  */
-export function rotatePiece(piece: Tetromino): Tetromino {
+export function rotatePiece(
+  piece: Tetromino,
+  direction: RotateDirection = 'cw'
+): Tetromino {
   const ANGULAR_IMPULSE = 45; // 회전 충격량 (도 단위)
+  const impulse = direction === 'cw' ? ANGULAR_IMPULSE : -ANGULAR_IMPULSE;
 
   return {
     ...piece,
-    angularVelocity: piece.angularVelocity + ANGULAR_IMPULSE,
+    angularVelocity: piece.angularVelocity + impulse,
   };
+}
+
+/**
+ * 90도 즉시 회전 (↑키).
+ * 전통 테트리스 스타일: 각도를 즉시 90도 단위로 변경한다.
+ *
+ * 동작 원리:
+ * 1. 현재 angle에 90도를 더한 새 블록을 만든다.
+ * 2. 새 위치에서 충돌이 발생하면 회전하지 않는다.
+ * 3. angularVelocity는 0으로 리셋하여 관성 회전을 멈춘다.
+ */
+export function snapRotate(piece: Tetromino, board: Board): Tetromino {
+  const rotated: Tetromino = {
+    ...piece,
+    angle: piece.angle + 90,
+    angularVelocity: 0, // 즉시 회전이므로 관성 제거
+  };
+
+  // 충돌 시 회전 무시
+  if (checkCollision(rotated, board)) {
+    return piece;
+  }
+
+  return rotated;
 }
 
 // ------------------------------------------------------------

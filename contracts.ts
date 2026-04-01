@@ -153,6 +153,26 @@ export type ClearLinesFn = (
   board: Board
 ) => { board: Board; linesCleared: number };
 
+/** 회전 방향 */
+export type RotateDirection = 'cw' | 'ccw';
+
+/**
+ * 물리 기반 회전: angularVelocity 충격량을 가해 부드럽게 회전
+ * - Q키: 반시계방향(ccw), E키: 시계방향(cw)
+ * - 마찰에 의해 점차 감속하는 자연스러운 회전
+ */
+export type RotatePieceFn = (piece: Tetromino, direction: RotateDirection) => Tetromino;
+
+/**
+ * 90도 즉시 회전 (↑키)
+ * - 전통 테트리스 스타일의 즉시 90도 회전
+ * - 충돌 시 회전 무시
+ */
+export type SnapRotateFn = (piece: Tetromino, board: Board) => Tetromino;
+
+/** 소프트 드롭: vy를 즉시 높여 빠르게 낙하 (↓키) */
+export type SoftDropFn = (state: PhysicsState) => PhysicsState;
+
 /**
  * 현재 블록을 보관함에 저장 (R키)
  * - heldPiece 없으면: currentPiece → held, nextPiece → current

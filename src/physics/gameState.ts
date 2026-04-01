@@ -3,8 +3,8 @@
 // 모든 함수는 순수 함수로, state를 직접 변경하지 않고 새 state를 반환한다.
 // ============================================================
 
-import type { PhysicsState, Tetromino, Board, TetrominoShape } from '../../contracts';
-import { applyGravity, checkCollision, clearLines, getRotatedCells } from './engine';
+import type { PhysicsState, Tetromino, Board, TetrominoShape, RotateDirection } from '../../contracts';
+import { applyGravity, checkCollision, clearLines, getRotatedCells, rotatePiece as engineRotate, snapRotate as engineSnapRotate } from './engine';
 
 // ------------------------------------------------------------
 // 테트로미노 정의
@@ -322,5 +322,86 @@ export function holdPiece(state: PhysicsState): PhysicsState {
     heldPiece: pieceToHold,
     canHold: false, // 착지 전까지 재사용 불가
     isGameOver,
+  };
+}
+
+// ------------------------------------------------------------
+// rotatePieceInState: 물리 기반 자유 회전 (Q/E키)
+// ------------------------------------------------------------
+
+/**
+ * 블록에 회전 충격량을 가한다 (360도 자유 회전).
+ * Q키: 반시계방향(ccw), E키: 시계방향(cw).
+ *
+ * 동작 원리:
+ * 1. engine의 rotatePiece를 호출하여 angularVelocity에 충격량을 더한다.
+ * 2. 실제 angle 변화는 매 프레임 applyGravity에서 누적 적용된다.
+ * 3. 마찰에 의해 자연스럽게 감속한다.
+ */
+export function rotatePieceInState(
+  state: PhysicsState,
+  direction: RotateDirection
+): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+
+  return {
+    ...state,
+    currentPiece: engineRotate(state.currentPiece, direction),
+  };
+}
+
+// ------------------------------------------------------------
+// snapRotateInState: 90도 즉시 회전 (↑키)
+// ------------------------------------------------------------
+
+/**
+ * 블록을 90도 즉시 회전시킨다 (전통 테트리스 스타일).
+ * 충돌 시 회전을 무시한다.
+ */
+export function snapRotateInState(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+
+  const rotated = engineSnapRotate(state.currentPiece, state.board);
+
+  // 회전이 무시된 경우 (충돌) 원본 반환
+  if (rotated === state.currentPiece) return state;
+
+  return {
+    ...state,
+    currentPiece: rotated,
+  };
+}
+
+// ------------------------------------------------------------
+// softDrop: 소프트 드롭 (↓키)
+// ------------------------------------------------------------
+
+/**
+ * 블록의 낙하 속도를 일시적으로 높인다 (↓키).
+ *
+ * 동작 원리:
+ * 1. vy에 소프트 드롭 가속도(1.0)를 더한다.
+ * 2. 충돌 시 이동하지 않는다.
+ * 3. 소프트 드롭 거리에 비례한 보너스 점수(1점/칸)를 추가한다.
+ */
+export function softDrop(state: PhysicsState): PhysicsState {
+  if (!state.currentPiece || state.isGameOver) return state;
+
+  const SOFT_DROP_SPEED = 1.0;
+
+  const dropped: Tetromino = {
+    ...state.currentPiece,
+    y: state.currentPiece.y + SOFT_DROP_SPEED,
+    vy: SOFT_DROP_SPEED,
+  };
+
+  if (checkCollision(dropped, state.board)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    currentPiece: dropped,
+    score: state.score + 1, // 소프트 드롭 보너스
   };
 }

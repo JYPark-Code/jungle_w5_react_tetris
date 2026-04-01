@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyGravity, checkCollision, rotatePiece, getRotatedCells, cutPieceAtLine, clearLines } from './engine';
+import { applyGravity, checkCollision, rotatePiece, snapRotate, getRotatedCells, cutPieceAtLine, clearLines } from './engine';
 import type { Tetromino, Board } from '../../contracts';
 
 // 테스트용 빈 보드 생성 (20행 x 10열)
@@ -118,7 +118,19 @@ describe('applyGravity', () => {
 });
 
 describe('rotatePiece', () => {
-  it('회전 시 angularVelocity가 증가해야 한다', () => {
+  it('시계방향(cw) 회전 시 angularVelocity가 +45여야 한다', () => {
+    const piece = createTestPiece();
+    const result = rotatePiece(piece, 'cw');
+    expect(result.angularVelocity).toBe(45);
+  });
+
+  it('반시계방향(ccw) 회전 시 angularVelocity가 -45여야 한다', () => {
+    const piece = createTestPiece();
+    const result = rotatePiece(piece, 'ccw');
+    expect(result.angularVelocity).toBe(-45);
+  });
+
+  it('기본값은 시계방향(cw)이어야 한다', () => {
     const piece = createTestPiece();
     const result = rotatePiece(piece);
     expect(result.angularVelocity).toBe(45);
@@ -126,15 +138,63 @@ describe('rotatePiece', () => {
 
   it('연속 회전 시 angularVelocity가 누적되어야 한다', () => {
     const piece = createTestPiece();
-    const once = rotatePiece(piece);
-    const twice = rotatePiece(once);
+    const once = rotatePiece(piece, 'cw');
+    const twice = rotatePiece(once, 'cw');
     expect(twice.angularVelocity).toBe(90);
+  });
+
+  it('CW + CCW가 상쇄되어야 한다', () => {
+    const piece = createTestPiece();
+    const cw = rotatePiece(piece, 'cw');
+    const cancelled = rotatePiece(cw, 'ccw');
+    expect(cancelled.angularVelocity).toBe(0);
   });
 
   it('원본 블록이 변경되지 않아야 한다 (순수 함수)', () => {
     const piece = createTestPiece();
-    rotatePiece(piece);
+    rotatePiece(piece, 'cw');
     expect(piece.angularVelocity).toBe(0);
+  });
+});
+
+describe('snapRotate', () => {
+  it('빈 보드에서 90도 즉시 회전해야 한다', () => {
+    const board = createEmptyBoard();
+    const piece = createTestPiece({ x: 4, y: 5, angle: 0 });
+    const result = snapRotate(piece, board);
+    expect(result.angle).toBe(90);
+  });
+
+  it('회전 후 angularVelocity가 0이어야 한다 (관성 제거)', () => {
+    const board = createEmptyBoard();
+    const piece = createTestPiece({ x: 4, y: 5, angularVelocity: 30 });
+    const result = snapRotate(piece, board);
+    expect(result.angularVelocity).toBe(0);
+  });
+
+  it('충돌 시 회전하지 않아야 한다', () => {
+    const board = createEmptyBoard();
+    // I 블록을 벽 옆에 배치 → 90도 회전 시 벽 밖으로 나감
+    const piece = createTestPiece({
+      shape: [[1, 1, 1, 1]],
+      x: 0,
+      y: 0,
+      angle: 0,
+    });
+    const result = snapRotate(piece, board);
+    // 회전 후 충돌하면 원본 그대로 반환
+    if (checkCollision({ ...piece, angle: 90 }, board)) {
+      expect(result.angle).toBe(0);
+    }
+  });
+
+  it('연속 snapRotate로 360도 회전해야 한다', () => {
+    const board = createEmptyBoard();
+    let piece = createTestPiece({ x: 4, y: 5, angle: 0 });
+    for (let i = 0; i < 4; i++) {
+      piece = snapRotate(piece, board);
+    }
+    expect(piece.angle).toBe(360);
   });
 });
 

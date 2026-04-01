@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initState, nextTick, movePiece, hardDrop, holdPiece } from './gameState';
+import { initState, nextTick, movePiece, hardDrop, holdPiece, rotatePieceInState, snapRotateInState, softDrop } from './gameState';
 import type { PhysicsState, Board, Tetromino } from '../../contracts';
 
 // 테스트용 빈 보드 생성
@@ -321,5 +321,109 @@ describe('holdPiece', () => {
     // 착지 시뮬레이션 (hardDrop)
     const dropped = hardDrop(held);
     expect(dropped.canHold).toBe(true);
+  });
+});
+
+describe('rotatePieceInState', () => {
+  it('시계방향(E키) 회전 시 angularVelocity가 양수여야 한다', () => {
+    const state = createTestState();
+    const result = rotatePieceInState(state, 'cw');
+    expect(result.currentPiece!.angularVelocity).toBe(45);
+  });
+
+  it('반시계방향(Q키) 회전 시 angularVelocity가 음수여야 한다', () => {
+    const state = createTestState();
+    const result = rotatePieceInState(state, 'ccw');
+    expect(result.currentPiece!.angularVelocity).toBe(-45);
+  });
+
+  it('게임 오버 상태에서는 회전하지 않아야 한다', () => {
+    const state = createTestState({ isGameOver: true });
+    const result = rotatePieceInState(state, 'cw');
+    expect(result).toBe(state);
+  });
+});
+
+describe('snapRotateInState', () => {
+  it('90도 즉시 회전해야 한다', () => {
+    const state = createTestState({
+      currentPiece: {
+        shape: [[1, 1], [1, 1]],
+        x: 4,
+        y: 5,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        angularVelocity: 0,
+        color: '#ff0',
+      },
+    });
+    const result = snapRotateInState(state);
+    expect(result.currentPiece!.angle).toBe(90);
+  });
+
+  it('게임 오버 상태에서는 회전하지 않아야 한다', () => {
+    const state = createTestState({ isGameOver: true });
+    const result = snapRotateInState(state);
+    expect(result).toBe(state);
+  });
+});
+
+describe('softDrop', () => {
+  it('블록의 y가 증가해야 한다', () => {
+    const state = createTestState({
+      currentPiece: {
+        shape: [[1, 1], [1, 1]],
+        x: 4,
+        y: 5,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        angularVelocity: 0,
+        color: '#ff0',
+      },
+    });
+    const result = softDrop(state);
+    expect(result.currentPiece!.y).toBeGreaterThan(5);
+  });
+
+  it('소프트 드롭 보너스 점수가 추가되어야 한다', () => {
+    const state = createTestState({
+      currentPiece: {
+        shape: [[1, 1], [1, 1]],
+        x: 4,
+        y: 5,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        angularVelocity: 0,
+        color: '#ff0',
+      },
+    });
+    const result = softDrop(state);
+    expect(result.score).toBe(1);
+  });
+
+  it('바닥 충돌 시 이동하지 않아야 한다', () => {
+    const state = createTestState({
+      currentPiece: {
+        shape: [[1, 1]],
+        x: 4,
+        y: 19,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        angularVelocity: 0,
+        color: '#ff0',
+      },
+    });
+    const result = softDrop(state);
+    expect(result).toBe(state);
+  });
+
+  it('게임 오버 상태에서는 동작하지 않아야 한다', () => {
+    const state = createTestState({ isGameOver: true });
+    const result = softDrop(state);
+    expect(result).toBe(state);
   });
 });
