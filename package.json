@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/JYPark-Code/jungle_w5_react_tetris#readme",
   "devDependencies": {
+    "jsdom": "^29.0.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   }
