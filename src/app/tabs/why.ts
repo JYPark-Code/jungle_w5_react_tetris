@@ -287,6 +287,9 @@ function createUseEffectSection(): HTMLElement {
   const startBtn = document.createElement('button');
   startBtn.className = 'why-btn why-btn-start';
   startBtn.textContent = '▶ 시작 (mount)';
+  const noCleanupBtn = document.createElement('button');
+  noCleanupBtn.className = 'why-btn why-btn-danger';
+  noCleanupBtn.textContent = '⚠ cleanup 없이 재시작';
   const stopBtn = document.createElement('button');
   stopBtn.className = 'why-btn why-btn-stop';
   stopBtn.textContent = '■ 정지 (cleanup)';
@@ -295,16 +298,19 @@ function createUseEffectSection(): HTMLElement {
   btnGroup.appendChild(stopBtn);
   right.appendChild(canvas);
   right.appendChild(btnGroup);
+  right.appendChild(noCleanupBtn);
 
   section.appendChild(left);
   section.appendChild(right);
 
-  // 애니메이션: I 블록 낙하
+  // 애니메이션: I 블록 낙하 — 루프 쌓임 데모
   let blockY = 60;
   let falling = false;
+  let loopCount = 0; // 현재 쌓인 루프 수
   let rafId: number | null = null;
   let sectionVisible = false;
   const BLK = 50;
+  const BASE_SPEED = 1.5;
 
   function draw(): void {
     const ctx = canvas.getContext('2d');
@@ -328,30 +334,49 @@ function createUseEffectSection(): HTMLElement {
     }
 
     if (falling) {
-      blockY += 1.5;
-      if (blockY > 520) blockY = 60; // 리셋
+      blockY += BASE_SPEED * loopCount;
+      if (blockY > 520) blockY = 60;
     }
 
     drawBlock(ctx, 250, blockY, 0, I_CELLS, COLORS.I, BLK);
 
     // 상태 표시
-    ctx.fillStyle = falling ? '#00ff88' : '#f44';
-    ctx.font = '24px Consolas, monospace';
+    ctx.font = '20px Consolas, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(falling ? 'useEffect 실행 중...' : '대기 중', 250, 545);
+    if (!falling) {
+      ctx.fillStyle = '#888';
+      ctx.fillText('대기 중', 250, 540);
+    } else if (loopCount <= 1) {
+      ctx.fillStyle = '#00ff88';
+      ctx.fillText('루프 1개 — 정상 속도', 250, 540);
+    } else {
+      ctx.fillStyle = '#f44';
+      ctx.fillText(`루프 ${loopCount}개 쌓임 — 속도 x${loopCount}`, 250, 540);
+    }
 
     if (sectionVisible) {
       rafId = requestAnimationFrame(draw);
     }
   }
 
+  // 시작 (cleanup 포함): 이전 루프를 해제하고 새로 1개만
   startBtn.addEventListener('click', () => {
+    loopCount = 1;
     falling = true;
-    blockY = 30;
+    blockY = 60;
   });
 
+  // cleanup 없이 재시작: 루프가 쌓임
+  noCleanupBtn.addEventListener('click', () => {
+    loopCount++;
+    falling = true;
+    blockY = 60;
+  });
+
+  // 정지 (cleanup): 모든 루프 해제
   stopBtn.addEventListener('click', () => {
     falling = false;
+    loopCount = 0;
   });
 
   observeCanvas(
