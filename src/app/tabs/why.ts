@@ -162,19 +162,20 @@ function createUseStateSection(): HTMLElement {
   right.className = 'why-col-text';
   right.innerHTML = `
     <h2 class="why-hook-name" style="color:#00ff88">useState</h2>
-    <p class="why-hook-desc">값이 바뀌면<br>화면이 자동으로 다시 그려집니다</p>
+    <p class="why-hook-desc">값 변경 + 화면 업데이트를<br>연결</p>
     <div class="why-divider"></div>
     <div class="why-compare">
       <div class="why-compare-bad">
-        <strong>일반 변수라면:</strong><br>
+        <strong>일반 변수:</strong><br>
         <code>x = 240</code><br>
-        → 화면 변화 없음 ❌
+        → 값만 바뀌고 끝 ❌<br>
+        → 화면은 그대로
       </div>
       <div class="why-compare-good">
-        <strong>useState라면:</strong><br>
+        <strong>useState:</strong><br>
         <code>const [x, setX] = useState(240)</code><br>
         <code>setX(300)</code><br>
-        → 화면 자동 업데이트 ✅
+        → 값 변경 + update()함수 호출 + 화면 렌더링 ✅
       </div>
     </div>
   `;
@@ -258,15 +259,18 @@ function createUseEffectSection(): HTMLElement {
   left.className = 'why-col-text';
   left.innerHTML = `
     <h2 class="why-hook-name" style="color:#4ecdc4">useEffect</h2>
-    <p class="why-hook-desc">컴포넌트가 화면에 나타났을 때<br>딱 한 번 자동으로 실행됩니다</p>
+    <p class="why-hook-desc">게임 시작 시 useEffect를 실행하여<br>낙하 루프를 시작</p>
     <div class="why-divider"></div>
     <p class="why-hook-detail">
-      쉽게 말하면:<br>
-      <em>"게임 시작 버튼을 누르면<br>블록이 떨어지기 시작합니다"</em>
+      <strong style="color:#f44">cleanup이 없으면:</strong><br>
+      <em>재시작할 때마다 루프가 점점 쌓임<br>
+      → 한 프레임당 움직이는 속도가<br>
+      쌓인만큼 빨라진다</em>
     </p>
-    <p class="why-hook-detail" style="margin-top:16px">
-      <strong style="color:#ffe66d">cleanup이란:</strong><br>
-      <em>"게임이 끝나면 블록 낙하도 멈춥니다"</em>
+    <p class="why-hook-detail" style="margin-top:16px"> 
+      <strong style="color:#00ff88">cleanup이 있으면:</strong><br>
+      <em>이전 루프를 먼저 해제한 뒤<br>
+      새 루프를 시작</em>
     </p>
   `;
 
@@ -403,12 +407,16 @@ function createUseMemoSection(): HTMLElement {
   right.className = 'why-col-text';
   right.innerHTML = `
     <h2 class="why-hook-name" style="color:#ffe66d">useMemo</h2>
-    <p class="why-hook-desc">결과가 바뀔 때만<br>다시 계산합니다</p>
+    <p class="why-hook-desc">변경된 부분만<br>다시 계산합니다</p>
     <div class="why-divider"></div>
     <p class="why-hook-detail">
-      쉽게 말하면:<br>
-      <em>"블록이 움직일 때마다<br>충돌 계산을 처음부터 다시 하면<br>느려집니다.<br>
-      바뀐 것만 다시 계산합니다"</em>
+      <strong style="color:#f44">OFF:</strong>
+      <em>충돌 계산을 처음부터 끝까지<br>매 프레임 전부 수행</em>
+    </p>
+    <p class="why-hook-detail" style="margin-top:16px">
+      <strong style="color:#00ff88">ON:</strong>
+      <em>충돌 직전부터만 계산 시작<br>
+      → OFF보다 현저히 적은 계산 횟수</em>
     </p>
   `;
 
@@ -543,8 +551,8 @@ function createComponentSection(): HTMLElement {
   const header = document.createElement('div');
   header.className = 'why-component-header';
   header.innerHTML = `
-    <h2 class="why-hook-name" style="color:#4ecdc4">왜 UI를 나눠서 만들까?</h2>
-    <p class="why-hook-desc">블록이 움직일 때<br>점수판은 다시 그릴 필요가 없습니다</p>
+    <h2 class="why-hook-name" style="color:#4ecdc4">왜 함수형 컴포넌트로 나눠서 만들까?</h2>
+    <p class="why-hook-desc">블록만 움직이면<br>diff가 Block만 바뀌었다고 판단합니다</p>
   `;
 
   const body = document.createElement('div');
@@ -565,10 +573,10 @@ function createComponentSection(): HTMLElement {
   right.innerHTML = `
     <div class="why-tree-node why-tree-root">TetrisApp <span style="color:#666">← State 소유</span></div>
     <div class="why-tree-node" id="why-tree-block">├── Block <span class="why-tree-badge why-badge-red">🔴 렌더링</span></div>
-    <div class="why-tree-node" id="why-tree-board">├── Board <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
-    <div class="why-tree-node" id="why-tree-score">├── Score <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
-    <div class="why-tree-node" id="why-tree-hold">└── Hold <span class="why-tree-badge why-badge-gray">⚪ 스킵</span></div>
-    <p class="why-tree-note">Block이 움직일 때<br>Block만 다시 그립니다</p>
+    <div class="why-tree-node" id="why-tree-board">├── Board <span class="why-tree-badge why-badge-gray">⚪ 건너뜀</span></div>
+    <div class="why-tree-node" id="why-tree-score">├── Score <span class="why-tree-badge why-badge-gray">⚪ 건너뜀</span></div>
+    <div class="why-tree-node" id="why-tree-hold">└── Hold <span class="why-tree-badge why-badge-gray">⚪ 건너뜀</span></div>
+    <p class="why-tree-note">Block만 바뀌었으므로<br>나머지는 렌더링하지 않고 건너뜁니다</p>
   `;
 
   body.appendChild(left);

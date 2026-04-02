@@ -52,19 +52,20 @@ function createHookMappingSection(): HTMLElement {
     <div class="learn-hook-list">
       <div class="learn-hook-item">
         <span class="learn-hook-label" style="color:#00ff88">useState</span>
-        <span class="learn-hook-desc">게임 전체 상태 / 다음 블록 / 보관 블록(1개)</span>
+        <span class="learn-hook-desc">게임 전체 상태 관리 / 모든 데이터 -> 하나의 state로 관리 / setState를 통해 update</span>
       </div>
       <div class="learn-hook-item">
         <span class="learn-hook-label" style="color:#4ecdc4">useEffect</span>
-        <span class="learn-hook-desc">게임 루프 시작 / 키보드 이벤트 / cleanup → 해제</span>
+        <span class="learn-hook-desc">게임의 라이프사이클을 담당 / 게임 루프 시작<br> / 키보드 이벤트 / cleanup → 해제</span>
       </div>
       <div class="learn-hook-item">
         <span class="learn-hook-label" style="color:#ffe66d">useMemo</span>
-        <span class="learn-hook-desc">충돌 캐싱</span>
+        <span class="learn-hook-desc">충돌 계산을 최적화</span>
       </div>
       <div class="learn-hook-item">
         <span class="learn-hook-label" style="color:#f44">Batching</span>
-        <span class="learn-hook-desc">setState 묶기</span>
+        <span class="learn-hook-desc">여러 setState 호출 -> setState 묶기 -><br> 불필요한 렌더링 ↓ ->
+성능 유지</span>
       </div>
     </div>
   `;
@@ -213,7 +214,7 @@ function createCleanupSection(): HTMLElement {
 function createMemoSection(): HTMLElement {
   return createProblemSection({
     num: 3,
-    title: '60fps 충돌 계산 과부하',
+    title: '충돌 계산 과부하',
     cause: '매 프레임 모든 블록 충돌 재계산',
     solution: 'useMemo로 deps 변경 시에만 재계산',
     visualHTML: `
@@ -241,27 +242,30 @@ function createHookOrderSection(): HTMLElement {
   return createProblemSection({
     num: 4,
     title: 'hooks[] 순서 꼬임',
-    cause: 'hookIndex 초기화 누락',
-    solution: 'mount/update 시 hookIndex = 0 리셋<br>"함수가 매번 실행돼도 상태 유지되는 이유"',
+    cause: 'update() 시 hookIndex를<br>0으로 리셋하지 않음',
+    solution: '매 렌더링 직전<br><code>current.hookIndex = 0</code> 리셋',
     reversed: true,
     visualHTML: `
       <div class="learn-hooks-demo">
         <div class="learn-hooks-box learn-hooks-correct">
-          <div class="learn-hooks-title" style="color:#00ff88">올바른 순서</div>
+          <div class="learn-hooks-title" style="color:#00ff88">hookIndex = 0 리셋 ✅</div>
+          <div style="color:#888;font-size:13px;margin-bottom:8px">hooks는 배열의 인덱스로 값을 찾습니다.</div>
           <div class="learn-hooks-slots">
-            <div class="learn-hook-slot" style="border-color:#00ff88">hooks[0] <span style="color:#00ff88">useState</span></div>
-            <div class="learn-hook-slot" style="border-color:#4ecdc4">hooks[1] <span style="color:#4ecdc4">useEffect</span></div>
-            <div class="learn-hook-slot" style="border-color:#ffe66d">hooks[2] <span style="color:#ffe66d">useMemo</span></div>
+            <div class="learn-hook-slot" style="border-color:#00ff88"><span style="color:#888">index 0 →</span> <span style="color:#00ff88">useState</span></div>
+            <div class="learn-hook-slot" style="border-color:#4ecdc4"><span style="color:#888">index 1 →</span> <span style="color:#4ecdc4">useEffect</span></div>
+            <div class="learn-hook-slot" style="border-color:#ffe66d"><span style="color:#888">index 2 →</span> <span style="color:#ffe66d">useMemo</span></div>
           </div>
-          <div class="learn-hooks-result">→ 게임 정상 작동</div>
+          <div style="color:#888;font-size:13px;margin-top:8px">1번째 렌더링: 0→1→2 ✅<br>2번째 렌더링: 0→1→2 ✅</div>
         </div>
         <div class="learn-hooks-box learn-hooks-wrong">
-          <div class="learn-hooks-title" style="color:#f44">잘못된 순서</div>
+          <div class="learn-hooks-title" style="color:#f44">hookIndex 리셋 안 함 ❌</div>
+          <div style="color:#888;font-size:13px;margin-bottom:8px">이전 인덱스에서 이어서 시작</div>
           <div class="learn-hooks-slots">
-            <div class="learn-hook-slot" style="border-color:#f44">hooks[0] <span style="color:#4ecdc4">useEffect</span></div>
-            <div class="learn-hook-slot" style="border-color:#f44">hooks[1] <span style="color:#00ff88">useState</span></div>
+            <div class="learn-hook-slot" style="border-color:#f44"><span style="color:#888">index 3 →</span> <span style="color:#f44">???</span></div>
+            <div class="learn-hook-slot" style="border-color:#f44"><span style="color:#888">index 4 →</span> <span style="color:#f44">???</span></div>
+            <div class="learn-hook-slot" style="border-color:#f44"><span style="color:#888">index 5 →</span> <span style="color:#f44">???</span></div>
           </div>
-          <div class="learn-hooks-result" style="color:#f44">→ 상태 오염 발생</div>
+          <div style="color:#888;font-size:13px;margin-top:8px">1번째 렌더링: 0→1→2<br>2번째 렌더링: 3→4→5 💥 undefined</div>
         </div>
       </div>
     `,
@@ -275,9 +279,9 @@ function createHookOrderSection(): HTMLElement {
 function createFiberSection(): HTMLElement {
   return createProblemSection({
     num: 5,
-    title: '게임 루프와 UI 경쟁',
-    cause: 'BatchScheduler가 모든 setState를<br>동일 우선순위로 처리',
-    solution: 'Fiber 스케줄러 도입<br>urgent > normal > idle',
+    title: '렌더링 우선순위',
+    cause: '처음 개발한 BatchScheduler는 모든 setState를<br>동일 우선순위로 처리',
+    solution: 'Fiber 스케줄러 도입<br> -> 원활한 게임환경 제공',
     visualHTML: `
       <div class="learn-fiber-demo">
         <div class="learn-fiber-box">
