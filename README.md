@@ -8,6 +8,26 @@
 
 ---
 
+## 스크린샷
+
+### Play — 물리 테트리스 게임 플레이
+
+![Play 탭](img/screencapture-localhost-5173-2026-04-02-11_07_07.png)
+
+### Why — 왜 React가 필요한가?
+
+![Why 탭](img/screencapture-localhost-5173-2026-04-02-11_07_26.png)
+
+### Flamegraph — 렌더링 메트릭
+
+![Flamegraph 탭](img/screencapture-localhost-5173-2026-04-02-11_07_42.png)
+
+### Lifecycle — 개발하며 발견한 것들
+
+![Lifecycle 탭](img/screencapture-localhost-5173-2026-04-02-11_07_53.png)
+
+---
+
 ## 왜 물리 테트리스인가?
 
 일반 테트리스는 그리드 기반입니다. 블록은 90도 단위로 회전하고, 라인은 행 단위로 깔끔하게 사라집니다.
@@ -62,12 +82,12 @@ npm run dev
 ```
 index.html (SPA 진입점)
 │
-├── 네비게이션: [🎮 Play] [🧩 Why Tetris] [📊 Flamegraph] [⚙️ Lifecycle]
+├── 네비게이션: [🎮 Play] [🧩 Why] [📊 F.Lane] [⚙️ 학습]
 │
 ├── Tab 1: Play           ← 물리 테트리스 게임 플레이
-├── Tab 2: Why Tetris     ← 주제 선정 이유 + 컴포넌트 트리 시각화 + 라인 절단 시연
+├── Tab 2: Why            ← 왜 React가 필요한가 + Hook 체험
 ├── Tab 3: Flamegraph     ← 실시간 렌더링 메트릭 패널
-└── Tab 4: Lifecycle      ← Hook 배치 시각화 + 구현 대응표
+└── Tab 4: Lifecycle      ← 개발하며 발견한 문제들 + 구현 대응표
 ```
 
 ---
@@ -85,9 +105,9 @@ graph TB
 
         subgraph TABS["4개 탭"]
             T1["Tab 1: Play<br/>물리 테트리스"]
-            T2["Tab 2: Why Tetris<br/>주제 선정 이유"]
+            T2["Tab 2: Why<br/>Hook 체험"]
             T3["Tab 3: Flamegraph<br/>렌더링 메트릭"]
-            T4["Tab 4: Lifecycle<br/>Hook + 대응표"]
+            T4["Tab 4: Lifecycle<br/>문제 발견 + 대응표"]
         end
         ROUTER --> TABS
     end
@@ -278,6 +298,145 @@ Preview       █               █
 
 ---
 
+## 코치 피드백 & 솔직한 회고
+
+### 코치 피드백
+
+> "Canvas에 그렸다면 DOM을 조작하지 않은 것인데, 미니 React 프로젝트에 맞나요?  
+> 소스코드를 보면 Matter.js가 보이는데, 이건 mini React 프로젝트가 아닌 것 같습니다."
+
+정확한 지적입니다.
+
+### 무엇이 어긋났는가
+
+처음 목표는 **custom React를 실제로 작동시키는 것**이었습니다.  
+그 증명 수단으로 **물리 테트리스**를 선택했는데, 이 선택이 목표와 어긋났습니다.
+
+```
+custom React가 잘 맞는 것      물리 테트리스가 요구한 것
+─────────────────────────      ────────────────────────
+DOM 상태 변화                   Canvas 렌더링 (DOM 밖)
+텍스트/속성 업데이트             실시간 물리 시뮬레이션
+사용자 이벤트 반응              60fps 게임 루프
+```
+
+**정적 테트리스**를 선택했더라면:
+
+```
+블록 이동    → setState → diff → CSS transform으로 DOM 업데이트
+라인 클리어  → setState → diff → 해당 row div 삭제
+Score 변경   → setState → patch → 텍스트 노드만 변경
+
+→ 모든 게 custom React diff/patch로 처리됨
+→ Flamegraph가 의미있게 채워짐
+→ "custom React가 어디서 작동하나요?" 질문에 완벽하게 답 가능
+```
+
+기교를 부리다가 본래 목적에서 벗어났습니다.
+
+### 개발 과정에서 실제로 일어난 일
+
+**1단계: Matter.js 도입**  
+물리 시뮬레이션을 위해 Matter.js를 사용했습니다.  
+게임은 잘 작동했지만 문제가 생겼습니다.
+
+```typescript
+// Matter.js 방식 — 라이브러리 내부 mutable 상태
+Matter.Engine.update(engine, dt);
+const pos = body.position; // 내부 객체 직접 접근
+
+// custom React useState가 요구하는 방식
+setGameState(prev => nextTick(prev, dt)); // prev → newState 순수 함수
+```
+
+Matter.js의 내부 상태는 `setState(prev => newState)` 패턴으로 다룰 수 없었습니다.  
+**custom React와 연결 자체가 불가능한 구조였습니다.**
+
+**2단계: 순수 TypeScript 물리 포팅 시도**  
+Matter.js를 걷어내고 SAT 충돌, velocity 적분, impulse 해소를  
+순수 TypeScript 함수로 직접 포팅했습니다.  
+`setState(prev => nextTick(prev, dt))` 패턴으로 연결은 됐지만,  
+충돌 해소 버그가 계속 발생해서 게임이 제대로 동작하지 않았습니다.
+
+**3단계: Matter.js로 복귀**  
+결국 물리 엔진은 Matter.js로 유지하고,  
+custom React는 Score UI 연결에만 사용하게 됐습니다.
+
+### custom React가 실제로 작동하는 곳
+
+이 프로젝트에서 custom React diff/patch가 실제로 작동하는 영역은  
+**Score / Level / Lines 패널**입니다.
+
+```
+Matter.js 물리 시뮬레이션
+        ↓
+scoreBoardComp.setProps({ score, level, lines })
+        ↓
+Component.update() → diff(prevVNode, newVNode)
+        ↓ score가 바뀐 경우에만
+patch(DOM) → 텍스트 노드만 업데이트
+        ↓
+Flamegraph → 실제 렌더링 시간 기록
+```
+
+게임 전체가 아니라 일부입니다.  
+**Canvas는 React의 선언적 렌더링 바깥 영역입니다.**
+
+### 이번 경험에서 배운 것
+
+기술 스택을 먼저 정하고 끼워 맞추려 했던 게 문제였습니다.
+
+```
+이번 실수: 물리 테트리스(목표) → custom React(수단)를 억지로 연결
+올바른 순서: custom React(수단)로 잘 작동하는 것(목표)을 먼저 선택
+```
+
+**Canvas는 React가 관여하지 않는 영역이라는 것**,  
+**라이브러리 내부 상태는 순수 함수 패턴과 맞지 않는다는 것**을  
+직접 부딪히고 나서야 알게 됐습니다.
+
+다음에 같은 걸 만든다면 **정적 테트리스**를 선택했을 겁니다.
+
+### 그럼에도 의미있었던 것
+
+- `useEffect` cleanup 없이 START를 두 번 누르면 루프가 2개 돌아서 블록이 2배 빠르게 떨어졌습니다. **cleanup이 왜 필요한지 몸으로 이해했습니다.**
+- `hookIndex`를 리셋하지 않으면 상태가 엉키는 버그를 직접 만들었습니다. **훅을 조건문 안에 쓰면 안 되는 이유를 코드로 이해했습니다.**
+- Matter.js가 왜 custom React와 맞지 않는지를 설명할 수 있습니다. **"라이브러리 내부 mutable 상태는 순수 함수 패턴과 구조적으로 맞지 않는다"**는 것을 직접 발견했습니다.
+
+완성된 구현보다 **실패한 이유를 정확히 아는 것**이 더 오래 남습니다.
+
+---
+
+## 순수 TS 물리 엔진 시도 → Matter.js 회귀
+
+### 시도한 것
+
+SAT(분리축 정리) 기반 충돌 감지, impulse 반응, 수동 중력/마찰을 순수 TypeScript로 구현했습니다.
+10회 이상의 수정 사이클을 거쳤지만 3가지 근본 문제가 해결되지 않았습니다:
+
+| 문제 | 원인 | 시도한 해결 |
+|------|------|------------|
+| 블록 겹침 | SAT 충돌 해소 1~2회 반복으로는 불충분 | 보정 비율 조정, 반복 횟수 증가 |
+| 파편 미낙하 | clearCooldown 중 물리 skip, isStatic 판정 오류 | 쿨다운 중 파편만 물리 실행 |
+| 착지 오판 | 충돌 보정(위로 밀기)과 착지 판정(아래 체크) 상충 | 예측 거리 조정, lockTimer 리셋 제거 |
+
+### 교훈
+
+> **"바퀴를 재발명하지 말라"** — 물리 엔진은 수천 줄의 반복적 constraint solver가 필요합니다.
+> Matter.js(Box2D 수준)는 이를 검증된 방식으로 제공합니다.
+> 프로젝트의 핵심은 **custom React 구현**이므로, 물리는 검증된 라이브러리를 사용하고
+> React의 핵심(VDOM, Hooks, Fiber)을 직접 구현하는 데 집중했습니다.
+
+### 보존된 코드
+
+순수 TS 물리 시도 코드는 `.bak`, `.old`, `.legacy` 확장자로 보존되어 있습니다:
+- `engine2d.ts.bak` — SAT 충돌 감지, 중력, 벽 충돌
+- `notTetrisState.ts.bak` — 순수 함수 게임 상태 관리
+- `renderer.ts.bak` — Canvas 다각형 렌더링
+- `linecut.ts.bak` — Sutherland-Hodgman 다각형 절단
+
+---
+
 ## 파일 구조
 
 ```
@@ -308,9 +467,9 @@ src/
     ├── index.ts             # 진입점, 탭 라우팅
     ├── tabs/
     │   ├── play.ts          # Tab 1: 게임 플레이
-    │   ├── why.ts           # Tab 2: 주제 선정 이유
+    │   ├── why.ts           # Tab 2: 왜 React가 필요한가
     │   ├── flamegraph.ts    # Tab 3: 메트릭 패널
-    │   └── lifecycle.ts     # Tab 4: Hook 시각화 + 대응표
+    │   └── lifecycle.ts     # Tab 4: 문제 발견 + 대응표
     └── style.css            # 전체 레이아웃
 
 contracts.ts                 # 공용 인터페이스 계약 (수정 시 팀장 승인 필수)
@@ -383,49 +542,6 @@ npm test
 - **Canvas API** — 게임 보드 + Flamegraph 시각화
 - **Vite** — 번들러
 - **HTML/CSS** — 4탭 SPA 레이아웃
-
----
-
-## 마일스톤 진행 상황
-
-| M | 목표 | 상태 |
-|---|------|------|
-| M1 | 물리 엔진 기반 함수 (중력, 충돌, 회전) | ✅ |
-| M2 | 라인 절단 및 클리어 | ✅ |
-| M3 | 게임 상태 관리 + Hold Piece | ✅ |
-| M4 | Flamegraph 메트릭 패널 | ✅ |
-| M5 | 4탭 SPA 전체 통합 | ✅ |
-| M6 | 순수 TS 물리 시도 → Matter.js 회귀 | ✅ (아래 참고) |
-
----
-
-## 순수 TS 물리 엔진 시도 → Matter.js 회귀
-
-### 시도한 것
-
-SAT(분리축 정리) 기반 충돌 감지, impulse 반응, 수동 중력/마찰을 순수 TypeScript로 구현했습니다.
-10회 이상의 수정 사이클을 거쳤지만 3가지 근본 문제가 해결되지 않았습니다:
-
-| 문제 | 원인 | 시도한 해결 |
-|------|------|------------|
-| 블록 겹침 | SAT 충돌 해소 1~2회 반복으로는 불충분 | 보정 비율 조정, 반복 횟수 증가 |
-| 파편 미낙하 | clearCooldown 중 물리 skip, isStatic 판정 오류 | 쿨다운 중 파편만 물리 실행 |
-| 착지 오판 | 충돌 보정(위로 밀기)과 착지 판정(아래 체크) 상충 | 예측 거리 조정, lockTimer 리셋 제거 |
-
-### 교훈
-
-> **"바퀴를 재발명하지 말라"** — 물리 엔진은 수천 줄의 반복적 constraint solver가 필요합니다.
-> Matter.js(Box2D 수준)는 이를 검증된 방식으로 제공합니다.
-> 프로젝트의 핵심은 **custom React 구현**이므로, 물리는 검증된 라이브러리를 사용하고
-> React의 핵심(VDOM, Hooks, Fiber)을 직접 구현하는 데 집중했습니다.
-
-### 보존된 코드
-
-순수 TS 물리 시도 코드는 `.bak`, `.old`, `.legacy` 확장자로 보존되어 있습니다:
-- `engine2d.ts.bak` — SAT 충돌 감지, 중력, 벽 충돌
-- `notTetrisState.ts.bak` — 순수 함수 게임 상태 관리
-- `renderer.ts.bak` — Canvas 다각형 렌더링
-- `linecut.ts.bak` — Sutherland-Hodgman 다각형 절단
 
 ---
 
